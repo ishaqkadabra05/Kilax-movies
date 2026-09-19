@@ -199,9 +199,15 @@ Required in `.env.local`:
 REELPLEXI_API_KEY=YOUR_REELPLEXI_SANDBOX_API_KEY
 REELPLEXI_BASE_URL=https://api.reelplexi.com
 
-# Supabase (for auth/profiles)
-NEXT_PUBLIC_SUPABASE_URL=https://cshuwyaclvabveofknrw.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-key-here
+# Canonical app database (new users, profiles, usage, subscriptions)
+NEXT_PUBLIC_SUPABASE_URL=https://maijanpfppqteqzlreey.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-default-project-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-default-project-service-role-key
+
+# Legacy auth fallback only for older users already on the legacy project
+NEXT_PUBLIC_LEGACY_SUPABASE_URL=https://cshuwyaclvabveofknrw.supabase.co
+NEXT_PUBLIC_LEGACY_SUPABASE_ANON_KEY=your-legacy-project-anon-key
+LEGACY_SUPABASE_SERVICE_ROLE_KEY=your-legacy-project-service-role-key
 
 ```
 

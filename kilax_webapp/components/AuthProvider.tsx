@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from 'react'
 import { User } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabase'
+import { legacySupabase, supabase } from '@/lib/supabase'
 import { getUserSubscription } from '@/lib/subscriptions'
 
 interface AuthContextType {
@@ -137,6 +137,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (!error) {
       return { error: null }
+    }
+
+    try {
+      const legacyResult = await legacySupabase.auth.signInWithPassword({
+        email: normalizedEmail,
+        password,
+      })
+
+      if (!legacyResult.error) {
+        return {
+          error: new Error('This account is on the legacy Supabase project. Please reset the password or migrate the account to the main app database to continue.'),
+          legacyPasswordResetRequired: true,
+        }
+      }
+    } catch {
+      // Ignore legacy auth failures and fall back to the primary auth error.
     }
 
     try {

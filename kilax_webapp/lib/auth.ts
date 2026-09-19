@@ -1,4 +1,4 @@
-import { supabase } from './supabase'
+import { legacySupabase, supabase } from './supabase'
 
 export interface AuthResponse {
   success: boolean
@@ -49,16 +49,34 @@ export async function signUpWithEmail(email: string, password: string): Promise<
 // Email Sign In
 export async function signInWithEmail(email: string, password: string): Promise<AuthResponse> {
   try {
+    const normalizedEmail = email.trim().toLowerCase()
+
     const { error } = await supabase.auth.signInWithPassword({
-      email,
+      email: normalizedEmail,
       password
     })
-    
-    if (error) {
-      return { success: false, error: error.message }
+
+    if (!error) {
+      return { success: true }
     }
-    
-    return { success: true }
+
+    try {
+      const legacyResult = await legacySupabase.auth.signInWithPassword({
+        email: normalizedEmail,
+        password
+      })
+
+      if (!legacyResult.error) {
+        return {
+          success: false,
+          error: 'This account is on the legacy Supabase project. Please reset the password or migrate the account to the main app database to continue.'
+        }
+      }
+    } catch {
+      // Ignore legacy fallback errors; keep the primary auth error.
+    }
+
+    return { success: false, error: error.message }
   } catch (_error) {
     return { success: false, error: 'An unexpected error occurred' }
   }

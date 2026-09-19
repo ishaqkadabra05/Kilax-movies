@@ -2,36 +2,40 @@ import { createClient } from '@supabase/supabase-js'
 
 type SupabaseClient = ReturnType<typeof createClient>
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+const DEFAULT_SUPABASE_URL = 'https://maijanpfppqteqzlreey.supabase.co'
+const LEGACY_SUPABASE_URL = 'https://cshuwyaclvabveofknrw.supabase.co'
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables')
-}
+const defaultSupabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || DEFAULT_SUPABASE_URL
+const defaultSupabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || 'public-anon-key-placeholder'
+const defaultServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY || defaultSupabaseAnonKey
 
-if (typeof window === 'undefined' && !supabaseServiceRoleKey) {
-  throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY for server-side Supabase operations')
-}
+const legacySupabaseUrl = process.env.NEXT_PUBLIC_LEGACY_SUPABASE_URL || process.env.LEGACY_SUPABASE_URL || LEGACY_SUPABASE_URL
+const legacySupabaseAnonKey = process.env.NEXT_PUBLIC_LEGACY_SUPABASE_ANON_KEY || process.env.LEGACY_SUPABASE_ANON_KEY || 'legacy-public-anon-key-placeholder'
+const legacyServiceRoleKey = process.env.LEGACY_SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_LEGACY_SUPABASE_SERVICE_ROLE_KEY || legacySupabaseAnonKey
 
 const globalForSupabase = globalThis as typeof globalThis & {
   __kilaxSupabase?: SupabaseClient
   __kilaxSupabaseAdmin?: SupabaseClient
+  __kilaxLegacySupabase?: SupabaseClient
+  __kilaxLegacySupabaseAdmin?: SupabaseClient
 }
 
-export const supabase = globalForSupabase.__kilaxSupabase ?? createClient(supabaseUrl, supabaseAnonKey, {
+export const defaultSupabase = globalForSupabase.__kilaxSupabase ?? createClient(defaultSupabaseUrl, defaultSupabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true
   }
 })
-globalForSupabase.__kilaxSupabase = supabase
+globalForSupabase.__kilaxSupabase = defaultSupabase
 
-// Admin client for server-side operations (bypasses RLS)
+// Canonical app database for signup, profiles, usage, subscriptions, and all new user activity.
+export const supabase = defaultSupabase
+
+// Admin client for server-side operations against the main/default app database.
 export const supabaseAdmin = globalForSupabase.__kilaxSupabaseAdmin ?? createClient(
-  supabaseUrl,
-  supabaseServiceRoleKey || supabaseAnonKey,
+  defaultSupabaseUrl,
+  defaultServiceRoleKey,
   {
     auth: {
       autoRefreshToken: false,
@@ -41,6 +45,29 @@ export const supabaseAdmin = globalForSupabase.__kilaxSupabaseAdmin ?? createCli
   }
 )
 globalForSupabase.__kilaxSupabaseAdmin = supabaseAdmin
+
+// Legacy Supabase project used only for older user authentication validation.
+export const legacySupabase = globalForSupabase.__kilaxLegacySupabase ?? createClient(legacySupabaseUrl, legacySupabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: false,
+    detectSessionInUrl: false
+  }
+})
+globalForSupabase.__kilaxLegacySupabase = legacySupabase
+
+export const legacySupabaseAdmin = globalForSupabase.__kilaxLegacySupabaseAdmin ?? createClient(
+  legacySupabaseUrl,
+  legacyServiceRoleKey,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+      storageKey: 'kilax-legacy-admin-auth-token'
+    }
+  }
+)
+globalForSupabase.__kilaxLegacySupabaseAdmin = legacySupabaseAdmin
 
 // Database Types
 export interface Genre {

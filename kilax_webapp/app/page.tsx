@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 
+import { signInWithEmail } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 import { Search, Phone, Bell, X, ChevronLeft, ChevronRight, Plus, Check, Bookmark, Home, Film, Tv2, Heart, History, Smartphone, UserRound, Crown, Library, Flame, Sparkles, Clapperboard, Compass, Share2, Users, Gift, Link2, Play, Clapperboard as ClapperIcon } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -208,11 +209,17 @@ function AuthModal({ initialMode, onSuccess, onClose }: { initialMode:AuthMode; 
         if (!verifyData.ok) throw new Error(verifyData.error || "Security verification failed. Please try again.");
       }
       const normalizedPhone = selectedCountry ? normalizeInternationalPhone(selectedCountry.dialCode, phone) : "";
-      const result = mode === "signup"
-        ? await supabase.auth.signUp({ email: email.trim().toLowerCase(), password: pass, options: { data: { phone: normalizedPhone } } })
-        : await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password: pass });
-      if (result.error) { alert(result.error.message); return; }
-      const authUser = result.data.user;
+      if (mode === "signup") {
+        const result = await supabase.auth.signUp({ email: email.trim().toLowerCase(), password: pass, options: { data: { phone: normalizedPhone } } });
+        if (result.error) { alert(result.error.message); return; }
+        const authUser = result.data.user;
+        onSuccess({ name:name || authUser?.user_metadata?.full_name || "Kilax Viewer", email:authUser?.email || email, phone:normalizedPhone||authUser?.user_metadata?.phone||"", joinDate:new Date().toLocaleDateString("en-US",{year:"numeric",month:"long",day:"numeric"}), avatar:av.emoji, avatarBg:av.bg });
+        return;
+      }
+
+      const result = await signInWithEmail(email.trim().toLowerCase(), pass);
+      if (!result.success) { alert(result.error || "Authentication failed"); return; }
+      const { data: { user: authUser } } = await supabase.auth.getUser();
       onSuccess({ name:name || authUser?.user_metadata?.full_name || "Kilax Viewer", email:authUser?.email || email, phone:normalizedPhone||authUser?.user_metadata?.phone||"", joinDate:new Date().toLocaleDateString("en-US",{year:"numeric",month:"long",day:"numeric"}), avatar:av.emoji, avatarBg:av.bg });
     } catch (e) { alert(e instanceof Error ? e.message : "Authentication failed"); }
   };
@@ -1981,6 +1988,33 @@ export default function App() {
 
   const [page,         setPage        ] = useState<Page>("home");
   const [catalogPreset, setCatalogPreset] = useState<{ type:'movie'|'series'; genre?:string; latest?:boolean }>({ type:'movie' });
+
+  const updatePage = useCallback((nextPage: Page) => {
+    setPage(nextPage);
+
+    if (typeof window === "undefined") return;
+
+    const routeMap: Record<Page, string> = {
+      home: "/",
+      movies: "/movies",
+      series: "/series",
+      playlist: "/playlist",
+      subscription: "/subscription",
+      mylist: "/mylist",
+      profile: "/profile",
+      history: "/history",
+      getapp: "/get-app",
+    };
+
+    const nextPath = routeMap[nextPage] || "/";
+    const url = new URL(window.location.href);
+    url.pathname = nextPath;
+    const nextUrl = `${url.pathname}${url.search}`;
+
+    if (window.location.pathname !== nextPath || window.location.search !== url.search) {
+      window.history.pushState({}, "", nextUrl);
+    }
+  }, []);
   const [modal,        setModal       ] = useState<MediaItem | null>(null);
   const [myList,       setMyList      ] = useState<Set<number>>(new Set());
   const [scrolled,     setScrolled    ] = useState(false);
@@ -2012,10 +2046,26 @@ export default function App() {
   });
 
   useEffect(()=>{
-    if (typeof window !== "undefined") {
-      const requestedPage = new URLSearchParams(window.location.search).get("page");
-      if (["home","movies","series","playlist","subscription","mylist","profile","history","getapp"].includes(requestedPage || "")) setPage(requestedPage as Page);
-    }
+    if (typeof window === "undefined") return;
+
+    const syncPageFromUrl = () => {
+      const pathname = window.location.pathname;
+      const nextPage = pathname === "/movies" ? "movies"
+        : pathname === "/series" ? "series"
+        : pathname === "/playlist" ? "playlist"
+        : pathname === "/subscription" ? "subscription"
+        : pathname === "/mylist" ? "mylist"
+        : pathname === "/profile" ? "profile"
+        : pathname === "/history" ? "history"
+        : pathname === "/get-app" ? "getapp"
+        : "home";
+
+      setPage(nextPage);
+    };
+
+    syncPageFromUrl();
+    window.addEventListener("popstate", syncPageFromUrl);
+    return () => window.removeEventListener("popstate", syncPageFromUrl);
   }, []);
 
   useEffect(() => {
@@ -2080,7 +2130,7 @@ export default function App() {
 
   const openCatalogPreset = (type:'movie'|'series', genre?:string, latest?:boolean) => {
     setCatalogPreset({ type, genre, latest });
-    setPage(type === 'movie' ? 'movies' : 'series');
+    updatePage(type === 'movie' ? 'movies' : 'series');
   };
 
   const toggleList = (id:number) => requireAuth(()=>{
@@ -2151,12 +2201,12 @@ export default function App() {
   const handleAuthSuccess = (u:UserProfile) => { setUser(u); setLoggedIn(true); setAuthModal(null); setPhoneRequired(!u.phone); refreshSubscription(); };
 
   const handleSignOut = () => {
-    setLoggedIn(false); setMyList(new Set()); setPage("home");
+    setLoggedIn(false); setMyList(new Set()); updatePage("home");
     setUser({ name:"Kilax Viewer", email:"viewer@kilaxmovies.com", phone:"+256 780 846 800", joinDate:new Date().toLocaleDateString("en-US",{year:"numeric",month:"long",day:"numeric"}), avatar:DEFAULT_AVATAR.emoji, avatarBg:DEFAULT_AVATAR.bg });
   };
 
   const handleViewSeries = (item:MediaItem) => { setModal(null); setSeriesDetail(item); };
-  useEffect(()=>{ const f=()=>setSearchOpen(true); const sub=()=>setPage("subscription"); window.addEventListener("kilax-open-search",f); window.addEventListener("kilax-open-subscription",sub); return()=>{window.removeEventListener("kilax-open-search",f);window.removeEventListener("kilax-open-subscription",sub)}},[]);
+  useEffect(()=>{ const f=()=>setSearchOpen(true); const sub=()=>updatePage("subscription"); window.addEventListener("kilax-open-search",f); window.addEventListener("kilax-open-subscription",sub); return()=>{window.removeEventListener("kilax-open-search",f);window.removeEventListener("kilax-open-subscription",sub)}}, [updatePage]);
 
   if (!catalogReady) return <div style={{ minHeight:"100vh", background:BG, color:"white", display:"grid", placeItems:"center", fontFamily:"'DM Sans',sans-serif" }}><LoadingBars label="Loading Kilax Movies" /></div>;
   if (catalogError) return <div style={{ minHeight:"100vh", background:BG, color:"white", display:"grid", placeItems:"center", padding:24, textAlign:"center", fontFamily:"'DM Sans',sans-serif" }}><div><h1 style={{fontSize:22,marginBottom:10}}>Kilax Movies</h1><p style={{color:"#94a3b8",maxWidth:520}}>{catalogError}</p></div></div>;
@@ -2198,12 +2248,12 @@ export default function App() {
 
       <Drawer
         open={drawerOpen} onClose={()=>setDrawerOpen(false)}
-        page={page} setPage={setPage}
+        page={page} setPage={updatePage}
         isLoggedIn={isLoggedIn} user={user} onAuthOpen={m=>setAuthModal(m)}
       />
 
       <Navbar
-        page={page} setPage={setPage} scrolled={scrolled}
+        page={page} setPage={updatePage} scrolled={scrolled}
         myListCount={myList.size}
         onSearch={()=>{ setSearchOpen(o=>!o); setNotifOpen(false); }}
         onNotif={()=>{ setNotifOpen(o=>!o); setSearchOpen(false); }}
@@ -2218,9 +2268,9 @@ export default function App() {
         {page==="movies"       && <CatalogPage      type="movie" title={catalogPreset.latest ? "Latest Movies" : catalogPreset.genre ? `${catalogPreset.genre} Movies` : "Movies"} accentColor={BLUE} myList={myList} onToggleList={toggleList} onOpen={m=>setModal(m)} initialGenre={catalogPreset.genre || "All"} initialFilter={catalogPreset.latest ? "latest" : "all"} />}
         {page==="series"       && <CatalogPage      type="series" title={catalogPreset.latest ? "Latest Series" : catalogPreset.genre ? `${catalogPreset.genre} Series` : "Series"} accentColor={ORANGE} myList={myList} onToggleList={toggleList} onOpen={m=>setModal(m)} initialGenre={catalogPreset.genre || "All"} initialFilter={catalogPreset.latest ? "latest" : "all"} />}
         {page==="playlist"     && <PlaylistsPage     onOpen={m=>setModal(m)} />}
-        {page==="subscription" && <SubscriptionPage onSuccess={()=>{setIsPremium(true);refreshSubscription();setPage("profile");}} />}
+        {page==="subscription" && <SubscriptionPage onSuccess={()=>{setIsPremium(true);refreshSubscription();updatePage("profile");}} />}
         {page==="mylist"       && <MyListPage       myList={myList} onToggleList={toggleList} onOpen={m=>setModal(m)} />}
-        {page==="profile"      && <ProfilePage      user={user} setUser={setUser} isPremium={isPremium} subscriptionPlan={subscriptionPlan} myListCount={myList.size} setPage={setPage} onSignOut={handleSignOut} />}
+        {page==="profile"      && <ProfilePage      user={user} setUser={setUser} isPremium={isPremium} subscriptionPlan={subscriptionPlan} myListCount={myList.size} setPage={updatePage} onSignOut={handleSignOut} />}
         {page==="history"      && <HistoryPage      history={watchHistory} onOpen={m=>setModal(m)} onClear={()=>setWatchHistory([])} />}
         {page==="getapp"       && <GetAppPage />}
       </div>
@@ -2228,8 +2278,8 @@ export default function App() {
       {searchOpen   && <SearchOverlay      onClose={()=>setSearchOpen(false)} onOpen={m=>{ setModal(m); setSearchOpen(false); }} />}
       {notifOpen    && <NotificationsPanel onClose={()=>setNotifOpen(false)} notifs={notifications} onRead={markNotificationRead} />}
       {modal        && <DetailModal        item={modal} myList={myList} onToggleList={toggleList} onClose={()=>setModal(null)} onPlay={handlePlay} onViewSeries={handleViewSeries} />}
-      {paywallItem  && <PremiumPaywall     item={paywallItem} onClose={()=>setPaywall(null)} onUpgrade={()=>{ setPaywall(null); setPage("subscription"); }} />}
-      {freeLimitReached && <FreeAllowanceLimitModal onClose={()=>setFreeLimitReached(false)} onUpgrade={()=>{ setFreeLimitReached(false); setPage("subscription"); }} />}
+      {paywallItem  && <PremiumPaywall     item={paywallItem} onClose={()=>setPaywall(null)} onUpgrade={()=>{ setPaywall(null); updatePage("subscription"); }} />}
+      {freeLimitReached && <FreeAllowanceLimitModal onClose={()=>setFreeLimitReached(false)} onUpgrade={()=>{ setFreeLimitReached(false); updatePage("subscription"); }} />}
       {authModal    && <AuthModal          initialMode={authModal} onSuccess={handleAuthSuccess} onClose={()=>setAuthModal(null)} />}
       {phoneRequired && isLoggedIn && <PhoneRequiredModal onSaved={(phone)=>{setUser(u=>({...u,phone}));setPhoneRequired(false)}} />}
 
