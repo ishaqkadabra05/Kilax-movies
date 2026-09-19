@@ -1,0 +1,28 @@
+{
+  "name": "Kilax Movies",
+  "short_name": "Kilax",
+  "description": "Stream movies and series with Kilax Movies.",
+  "start_url": "/",
+  "id": "/",
+  "scope": "/",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "display": "standalone",
+  "background_color": "#05070e",
+  "theme_color": "#05070e",
+  "orientation": "any",
+  "categories": ["entertainment", "video"],
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
