@@ -1916,6 +1916,25 @@ function HomePage({ myList, onToggleList, onOpen, onPlay, watchHistory, onSeeMor
   const px = mobile?16:48;
   const movies = mediaCatalog.filter(m=>m.type === "movie");
   const series = mediaCatalog.filter(m=>m.type === "series");
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.location.pathname !== "/") return;
+
+    const hash = window.location.hash.replace(/^#/, "");
+    if (!hash) return;
+
+    const params = new URLSearchParams(hash);
+    const type = params.get("type");
+    const accessToken = params.get("access_token");
+
+    if (type === "recovery" && accessToken) {
+      const nextUrl = new URL("/reset-password", window.location.origin);
+      nextUrl.hash = hash;
+      window.location.replace(nextUrl.toString());
+    }
+  }, []);
+
   const [trending, setTrending] = useState<MediaItem[]>([]);
   const [interacted, setInteracted] = useState(false);
   useEffect(()=>{ (async()=>{try{const r=await fetch("/api/reelplexi/trending?perPage=30",{cache:"no-store"});const d=await r.json();const mapped=(d.data||[]).map((x:any,i:number)=>({...mapReelplexiItem(x,(x.type === "series" || x.first_air_date || x.number_of_seasons != null) ? "series" : "movie",i),isTrending:true})); setTrending(mapped); for(const m of mapped){if(!mediaCatalog.some(existing=>existing.sourceId===m.sourceId)) mediaCatalog.push(m)}}catch{setTrending([])}})() },[]);

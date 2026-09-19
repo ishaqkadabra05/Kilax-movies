@@ -9,7 +9,7 @@ interface AuthContextType {
   user: User | null
   loading: boolean
   isPremium: boolean
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>
+  signIn: (email: string, password: string) => Promise<{ error: Error | null; legacyPasswordResetRequired?: boolean }>
   signUp: (email: string, password: string, phone?: string) => Promise<{ error: Error | null }>
   signInWithGoogle: () => Promise<{ error: Error | null }>
   signOut: () => Promise<void>
@@ -128,10 +128,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const signIn = async (email: string, password: string) => {
+    const normalizedEmail = email.trim().toLowerCase()
+
     const { error } = await supabase.auth.signInWithPassword({
-      email,
+      email: normalizedEmail,
       password,
     })
+
+    if (!error) {
+      return { error: null }
+    }
+
+    try {
+      const result = await supabase
+        .from('profiles')
+        .select('id, email')
+        .ilike('email', normalizedEmail)
+        .maybeSingle() as { data: { email?: string | null } | null; error: Error | null }
+
+      if (!result.error && result.data?.email) {
+        return {
+          error: new Error('Your migrated account requires a password reset before premium access can be restored.'),
+          legacyPasswordResetRequired: true,
+        }
+      }
+    } catch {
+      // Ignore profile lookup failures and fall back to the original auth error.
+    }
+
     return { error }
   }
 
@@ -178,8 +202,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const resetPassword = async (email: string) => {
+    const resetUrl = new URL('/reset-password', window.location.origin).toString()
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: resetUrl,
     })
     return { error }
   }

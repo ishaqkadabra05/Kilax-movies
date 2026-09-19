@@ -20,6 +20,8 @@ export default function SignInContent() {
   const [error,       setError]       = useState('');
   const [message,     setMessage]     = useState('');
   const [redirecting, setRedirecting] = useState(false);
+  const [legacyResetOpen, setLegacyResetOpen] = useState(false);
+  const [legacyResetEmail, setLegacyResetEmail] = useState('');
 
   const router       = useRouter();
   const searchParams = useSearchParams();
@@ -86,7 +88,7 @@ export default function SignInContent() {
     if (!ok) { setLoading(false); return; }
 
     // 2. Supabase auth
-    const { error: authErr } = await signIn(email, password);
+    const { error: authErr, legacyPasswordResetRequired } = await signIn(email, password);
 
     // 3. Annotate the assessment now that we know the outcome
     if (assessmentName) {
@@ -109,6 +111,14 @@ export default function SignInContent() {
       }
     }
 
+    if (legacyPasswordResetRequired) {
+      setLegacyResetEmail(email.trim().toLowerCase());
+      setLegacyResetOpen(true);
+      setError('Your account was migrated and needs a password reset before premium access can be restored.');
+      setLoading(false);
+      return;
+    }
+
     if (authErr) { setError(authErr.message || 'Failed to sign in'); }
     setLoading(false);
   };
@@ -127,8 +137,39 @@ export default function SignInContent() {
     );
   }
 
+  const continueToReset = () => {
+    sessionStorage.setItem('kilax_reset_email', legacyResetEmail || email.trim().toLowerCase());
+    setLegacyResetOpen(false);
+    router.push('/forgot-password');
+  };
+
   return (
     <>
+      {legacyResetOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4">
+          <div className="w-full max-w-md rounded-2xl border border-orange-500/30 bg-[#171d2a] p-6 shadow-2xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-xl font-bold text-white">Special offer available</h3>
+              <button type="button" onClick={() => setLegacyResetOpen(false)} className="text-gray-400 hover:text-white">✕</button>
+            </div>
+            <p className="text-sm leading-6 text-gray-300">
+              We detected a migrated account for <span className="font-semibold text-orange-400">{legacyResetEmail || email}</span>. To unlock your premium access and claim this special offer, you must reset your password first.
+            </p>
+            <div className="mt-5 rounded-lg border border-orange-500/25 bg-orange-500/10 p-3 text-sm text-orange-200">
+              Please reset your password now so your account can be re-validated and premium benefits can be restored.
+            </div>
+            <div className="mt-6 flex gap-3">
+              <button type="button" onClick={() => setLegacyResetOpen(false)} className="flex-1 rounded-lg border border-gray-700 bg-gray-800 px-4 py-3 text-sm font-medium text-gray-200 hover:bg-gray-700">
+                Later
+              </button>
+              <button type="button" onClick={continueToReset} className="flex-1 rounded-lg bg-orange-500 px-4 py-3 text-sm font-semibold text-white hover:bg-orange-600">
+                Reset password
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <RecaptchaGuard />
 
       <div className="flex min-h-screen items-center justify-center bg-black">

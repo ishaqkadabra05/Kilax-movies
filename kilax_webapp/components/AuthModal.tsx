@@ -38,12 +38,20 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
         if (!country || !isValidInternationalPhone(country.dialCode, phone)) { setError('Please enter a valid phone number with the country code'); setLoading(false); return }
       }
       const country = PHONE_COUNTRIES.find(c => c.code === countryCode)
-      const { error } = isLogin
+      const authResult = isLogin
         ? await signIn(email.trim().toLowerCase(), password)
         : await signUp(email.trim().toLowerCase(), password, country ? normalizeInternationalPhone(country.dialCode, phone) : undefined)
 
-      if (error) {
-        setError(error.message)
+      if (isLogin && 'legacyPasswordResetRequired' in authResult && authResult.legacyPasswordResetRequired) {
+        setError('This migrated account requires a password reset before premium access can be restored. Please reset your password to continue.')
+        setTimeout(() => {
+          window.location.href = '/forgot-password'
+        }, 400)
+        return
+      }
+
+      if ('error' in authResult && authResult.error) {
+        setError(authResult.error.message)
       } else {
         onClose()
         setEmail("")
