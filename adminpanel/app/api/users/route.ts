@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
 
     const premiumUserIds = new Set(
       [...subMap.entries()]
-        .filter(([, sub]) => {
+        .filter(([userId, sub]) => {
           const plan = planMap.get(String(sub.plan_id));
           const type = String(sub.subscription_type ?? "").toLowerCase();
           const status = String(sub.status ?? "active").toLowerCase();
