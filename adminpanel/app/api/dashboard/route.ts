@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/supabase/auth";
-import { createUserDb } from "@/lib/supabase/user-db";
+import { createLegacyUserDb, createUserDb } from "@/lib/supabase/user-db";
 import { reelplexiFetch } from "@/lib/reelplexi";
 import { withCache } from "@/lib/cache";
 
@@ -22,6 +22,26 @@ function mapContent(items: any[], type: "movie" | "series") {
     type,
     episodes: m.episodes,
   }));
+}
+
+async function loadCombinedUserCount(defaultDb: ReturnType<typeof createUserDb>, legacyDb: ReturnType<typeof createLegacyUserDb>) {
+  const [defaultUsers, legacyUsers] = await Promise.all([
+    defaultDb.auth.admin.listUsers({ page: 1, perPage: 1000 }),
+    legacyDb ? legacyDb.auth.admin.listUsers({ page: 1, perPage: 1000 }) : Promise.resolve({ data: { users: [] }, error: null }),
+  ]);
+
+  if (defaultUsers.error) throw defaultUsers.error;
+  if (legacyUsers.error) throw legacyUsers.error;
+
+  const merged = new Map<string, any>();
+  for (const user of defaultUsers.data?.users || []) {
+    if (user?.id) merged.set(String(user.id), user);
+  }
+  for (const user of legacyUsers.data?.users || []) {
+    if (user?.id && !merged.has(String(user.id))) merged.set(String(user.id), user);
+  }
+
+  return merged.size;
 }
 
 async function loadActiveUserStats(db: ReturnType<typeof createUserDb>) {
@@ -70,6 +90,7 @@ export async function GET(request: NextRequest) {
   try {
     await requireAdmin(request);
     const db = createUserDb();
+    const legacyDb = createLegacyUserDb();
 
     const activeNowCutoff = new Date(Date.now() - 5 * 60 * 1000).toISOString();
 
@@ -92,11 +113,8 @@ export async function GET(request: NextRequest) {
         reelplexiFetch<any>("/v1/series?per_page=6")
       ),
 
-      // ── User DB: user count, cached 2 min ──────────────────────────────
-      withCache("userdb:total-users", USER_STATS_TTL, async () => {
-        const res = await db.auth.admin.listUsers({ page: 1, perPage: 1 });
-        return (res.data as any)?.total ?? res.data?.users?.length ?? 0;
-      }),
+      // ── User DB: combined canonical + legacy user count, cached 2 min ──
+      withCache("userdb:total-users", USER_STATS_TTL, async () => loadCombinedUserCount(db, legacyDb)),
 
       // ── User DB: active subscriptions, cached 2 min ─────────────────────
       withCache("userdb:active-subs", USER_STATS_TTL, async () => {
@@ -122,9 +140,16 @@ export async function GET(request: NextRequest) {
       (activeNowResult.data || []).map((r: any) => String(r.user_id))
     ).size;
 
+    const defaultUsersResult = await db.auth.admin.listUsers({ page: 1, perPage: 1 });
+    const legacyUsersResult = legacyDb ? await legacyDb.auth.admin.listUsers({ page: 1, perPage: 1 }) : null;
+    const defaultUserCount = Number((defaultUsersResult as any)?.data?.total ?? (defaultUsersResult as any)?.data?.users?.length ?? 0);
+    const legacyUserCount = legacyUsersResult ? Number((legacyUsersResult as any)?.data?.total ?? (legacyUsersResult as any)?.data?.users?.length ?? 0) : 0;
+    const legacyUsers = legacyDb ? Math.max(0, totalUsers - defaultUserCount) : 0;
+
     return NextResponse.json({
       stats: {
         users: totalUsers,
+        legacyUsers: Math.min(legacyUsers, legacyUserCount),
         movies: movies.pagination?.total ?? movies.total ?? (movies.data?.length || 0),
         series: series.pagination?.total ?? series.total ?? (series.data?.length || 0),
         premium: activeSubs,

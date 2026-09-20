@@ -1,4 +1,4 @@
-import { createSupabaseAdmin } from "./admin";
+import { createLegacySupabaseAdmin, createSupabaseAdmin } from "./admin";
 import { createUserDb } from "./user-db";
 
 /**
@@ -16,12 +16,25 @@ export async function requireAdmin(request: Request) {
   }
   const token = authorization.slice(7);
 
-  // Validate JWT against the admin panel's Supabase project
+  // Validate JWT against the canonical project first, then the legacy project for historical admins.
   const adminDb = createSupabaseAdmin();
-  const { data, error } = await adminDb.auth.getUser(token);
-  if (error || !data.user) throw new Response("Unauthorized", { status: 401 });
+  const legacyAdminDb = createLegacySupabaseAdmin();
+  let currentUser = null as any;
+  let userId = null as string | null;
 
-  const userId = data.user.id;
+  const { data, error } = await adminDb.auth.getUser(token);
+  if (!error && data.user) {
+    currentUser = data.user;
+    userId = data.user.id;
+  } else if (legacyAdminDb) {
+    const legacyResult = await legacyAdminDb.auth.getUser(token);
+    if (!legacyResult.error && legacyResult.data.user) {
+      currentUser = legacyResult.data.user;
+      userId = legacyResult.data.user.id;
+    }
+  }
+
+  if (!currentUser || !userId) throw new Response("Unauthorized", { status: 401 });
 
   // ── Check 1: admins table in user dashboard DB ──────────────────────────
   // Schema: admins(user_id uuid PK → auth.users)
@@ -32,7 +45,7 @@ export async function requireAdmin(request: Request) {
       .select("user_id")
       .eq("user_id", userId)
       .maybeSingle();
-    if (adminRow) return data.user;
+    if (adminRow) return currentUser;
   } catch {
     // USER_DB credentials not set — fall through
   }
@@ -43,11 +56,19 @@ export async function requireAdmin(request: Request) {
     .select("user_id, active")
     .eq("user_id", userId)
     .maybeSingle();
-  if (panelRow && panelRow.active !== false) return data.user;
+  if (panelRow && panelRow.active !== false) return currentUser;
 
   // ── Check 3: app_metadata.role fallback ──────────────────────────────────
   const { data: fresh, error: freshErr } = await adminDb.auth.admin.getUserById(userId);
-  if (freshErr || !fresh.user) throw new Response("Unauthorized", { status: 401 });
+  if (freshErr || !fresh.user) {
+    if (legacyAdminDb) {
+      const legacyUserResult = await legacyAdminDb.auth.admin.getUserById(userId);
+      if (!legacyUserResult.error && legacyUserResult.data.user?.app_metadata?.role === "admin") {
+        return legacyUserResult.data.user;
+      }
+    }
+    throw new Response("Unauthorized", { status: 401 });
+  }
   if (fresh.user.app_metadata?.role === "admin") return fresh.user;
 
   throw new Response("Forbidden", { status: 403 });
