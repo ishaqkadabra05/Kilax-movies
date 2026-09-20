@@ -64,8 +64,12 @@ export function normalizeVideoUrl(url: string): string {
     return url
   }
 
+  // Signed cloud URLs (Wasabi/S3/pre-signed) should be played directly.
+  // The proxy often rejects these URLs with 403 even though the signed URL itself is valid.
+  const isSignedMediaUrl = /(?:[?&](?:X-Amz-|token=|Signature=|sig=|key=)|(?:X-Amz-|X-Goog-))/i.test(url)
+
   // Already proxied or is an iframe embed URL
-  if (url.startsWith('/api/stream') || url.includes('embed.reelplexi.com')) {
+  if (url.startsWith('/api/stream') || url.includes('embed.reelplexi.com') || isSignedMediaUrl) {
     return url
   }
 

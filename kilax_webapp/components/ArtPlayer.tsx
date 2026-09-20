@@ -497,7 +497,10 @@ function ArtPlayerCore({
     // ── Events ────────────────────────────────────────────────────────────
 
     art.on('error', (error) => {
-      setAuthError('Video stream failed to load. Please verify your connection or refresh the page.')
+      const message = (error as any)?.type === 'network'
+        ? 'The stream could not be loaded from the media server. Please check your connection and refresh the page.'
+        : 'Video stream failed to load. Please refresh the page or try another title.'
+      setAuthError(message)
       onError?.(error)
     })
 
