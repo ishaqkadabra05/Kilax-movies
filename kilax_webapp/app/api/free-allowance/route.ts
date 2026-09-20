@@ -3,7 +3,8 @@ import { createClient } from '@supabase/supabase-js'
 import { supabaseAdmin } from '@/lib/supabase'
 
 const DAILY_UNITS = 5
-const WATCH_LIMIT_SECONDS = 30 * 60
+const WATCH_LIMIT_SECONDS = 40 * 60
+const FREE_SERIES_EPISODE_LIMIT = 2
 
 type ContentType = 'movie' | 'series'
 
@@ -52,7 +53,7 @@ async function getAllowance(userId: string) {
     movieUsed: movieIds.size,
     seriesUsed: seriesIds.size,
     movieRemaining: Math.max(0, 1 - movieIds.size),
-    seriesRemaining: Math.max(0, 1 - seriesIds.size),
+    seriesRemaining: Math.max(0, FREE_SERIES_EPISODE_LIMIT - seriesIds.size),
     watchSeconds: Math.min(WATCH_LIMIT_SECONDS, watchSeconds),
     watchLimitSeconds: WATCH_LIMIT_SECONDS,
     resetAt: resetAt.toISOString(),

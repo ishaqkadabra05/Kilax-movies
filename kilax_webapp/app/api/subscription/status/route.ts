@@ -33,17 +33,18 @@ export async function GET(req: NextRequest) {
 
     const { data: profile } = await supabaseAdmin
       .from('profiles')
-      .select('subscription, subscription_expiry_date')
+      .select('subscription, subscription_expiry_date, trial_status, trial_expires_at')
       .eq('id', user.id)
-      .maybeSingle() as { data: { subscription?: string | null; subscription_expiry_date?: string | null } | null }
+      .maybeSingle() as { data: { subscription?: string | null; subscription_expiry_date?: string | null; trial_status?: string | null; trial_expires_at?: string | null } | null }
 
     const plan   = String(profile?.subscription || 'free')
     const expiry = profile?.subscription_expiry_date
       ? new Date(profile.subscription_expiry_date)
       : null
+    const trialActive = profile?.trial_status === 'active' && profile?.trial_expires_at && new Date(profile.trial_expires_at) > new Date()
 
-    const isActive    = plan.toLowerCase() !== 'free' && !!expiry && expiry > new Date()
-    const canDownload = isActive && DOWNLOAD_PLANS.test(plan)
+    const isActive    = (plan.toLowerCase() !== 'free' && !!expiry && expiry > new Date()) || Boolean(trialActive)
+    const canDownload = (isActive && DOWNLOAD_PLANS.test(plan)) || Boolean(trialActive)
 
     return NextResponse.json({
       authenticated: true,
@@ -51,6 +52,7 @@ export async function GET(req: NextRequest) {
       expiryDate:  profile?.subscription_expiry_date || null,
       isActive,
       canDownload,
+      trialActive: Boolean(trialActive),
     })
   } catch (error) {
     return NextResponse.json(

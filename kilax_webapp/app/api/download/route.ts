@@ -31,9 +31,9 @@ async function authorize(req: NextRequest) {
 
   const plan   = String(profile?.subscription || 'free')
   const expiry = profile?.subscription_expiry_date ? new Date(profile.subscription_expiry_date) : null
-  const active = plan.toLowerCase() !== 'free' && !!expiry && expiry > new Date()
-
   const trialActive = profile?.trial_status === 'active' && profile?.trial_expires_at && new Date(profile.trial_expires_at) > new Date()
+  const active = (plan.toLowerCase() !== 'free' && !!expiry && expiry > new Date()) || Boolean(trialActive)
+
   if ((!active || !canPlanDownload(plan)) && !trialActive) {
     return {
       ok: false as const,

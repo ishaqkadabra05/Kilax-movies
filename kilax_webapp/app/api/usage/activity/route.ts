@@ -9,6 +9,9 @@ const EVENT_TYPES = new Set([
   'stream_incomplete',
   'playback_progress',
 ])
+const FREE_MOVIE_LIMIT_SECONDS = 40 * 60
+const FREE_SERIES_LIMIT_EPISODES = 2
+const TRIAL_STREAM_LIMIT = 2
 
 export async function POST(request: NextRequest) {
   try {
@@ -47,7 +50,7 @@ export async function POST(request: NextRequest) {
       plan: body.plan ? String(body.plan) : null,
     }
 
-    if (eventType === 'playback_progress' && contentType === 'movie') {
+    if (eventType === 'playback_progress') {
       const { data: profile } = await (supabaseAdmin as any)
         .from('profiles')
         .select('subscription, trial_status, trial_expires_at')
@@ -55,20 +58,46 @@ export async function POST(request: NextRequest) {
         .maybeSingle()
       const isTrial = profile?.trial_status === 'active' && profile?.trial_expires_at && new Date(profile.trial_expires_at) > new Date()
       const isFree = !isTrial && (!profile?.subscription || profile.subscription.toLowerCase() === 'free')
-      if (isFree) {
-        const { data: movieEvents } = await (supabaseAdmin as any)
+
+      if (isTrial) {
+        const { data: trialEvents } = await (supabaseAdmin as any)
           .from('user_video_activity')
-          .select('watch_seconds, created_at')
+          .select('created_at')
           .eq('user_id', user.id)
-          .eq('content_type', 'movie')
+          .eq('event_type', 'stream_started')
+        const dayStart = Date.now() - 24 * 60 * 60 * 1000
+        const recentStreams = (trialEvents || []).filter((row: { created_at: string }) => new Date(row.created_at).getTime() >= dayStart).length
+        if (recentStreams >= TRIAL_STREAM_LIMIT) {
+          return NextResponse.json({ error: 'Your trial stream limit is reached. View plans to continue watching.', code: 'TRIAL_STREAM_LIMIT', limitReached: true, subscribeUrl: '/subscribe' }, { status: 403 })
+        }
+      }
+
+      if (isFree) {
+        const { data: usageEvents } = await (supabaseAdmin as any)
+          .from('user_video_activity')
+          .select('content_type, watch_seconds, created_at')
+          .eq('user_id', user.id)
+          .in('content_type', ['movie', 'series', 'episode'])
           .eq('event_type', 'playback_progress')
         const today = new Date()
         today.setUTCHours(0, 0, 0, 0)
-        const watchedToday = (movieEvents || [])
-          .filter((row: { created_at: string }) => new Date(row.created_at) >= today)
-          .reduce((total: number, row: { watch_seconds?: number }) => total + Number(row.watch_seconds || 0), 0)
-        if (watchedToday >= 30 * 60) {
-          return NextResponse.json({ error: 'Your free 30-minute movie allowance has been reached today. Subscribe to Premium to continue watching.', code: 'FREE_MOVIE_LIMIT', limitReached: true, subscribeUrl: '/subscribe' }, { status: 403 })
+
+        if (contentType === 'movie') {
+          const watchedToday = (usageEvents || [])
+            .filter((row: { created_at: string; content_type: string }) => row.content_type === 'movie' && new Date(row.created_at) >= today)
+            .reduce((total: number, row: { watch_seconds?: number }) => total + Number(row.watch_seconds || 0), 0)
+          if (watchedToday >= FREE_MOVIE_LIMIT_SECONDS) {
+            return NextResponse.json({ error: 'Your free movie limit is reached. View plans to continue watching.', code: 'FREE_MOVIE_LIMIT', limitReached: true, subscribeUrl: '/subscribe' }, { status: 403 })
+          }
+        }
+
+        if (contentType === 'series' || contentType === 'episode') {
+          const episodesToday = (usageEvents || [])
+            .filter((row: { created_at: string; content_type: string }) => ['series', 'episode'].includes(row.content_type) && new Date(row.created_at) >= today)
+            .length
+          if (episodesToday >= FREE_SERIES_LIMIT_EPISODES) {
+            return NextResponse.json({ error: 'Your free series limit is reached. View plans to continue watching.', code: 'FREE_SERIES_LIMIT', limitReached: true, subscribeUrl: '/subscribe' }, { status: 403 })
+          }
         }
       }
     }

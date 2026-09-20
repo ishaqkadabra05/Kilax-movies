@@ -374,9 +374,9 @@ function FreeAllowanceLimitModal({ onClose, onUpgrade }: { onClose:()=>void; onU
       <div onClick={e=>e.stopPropagation()} className="modal-glass fade-up" style={{ borderRadius:22, width:"100%", maxWidth:420, overflow:"hidden", border:"1px solid rgba(249,115,22,0.2)", boxShadow:"0 48px 120px rgba(0,0,0,0.8)" }}>
         <div style={{ padding:"40px 40px 36px", textAlign:"center" }}>
           <div style={{ width:68, height:68, borderRadius:"50%", background:"rgba(249,115,22,0.1)", border:"1px solid rgba(249,115,22,0.25)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:30, margin:"0 auto 22px" }}>⏱</div>
-          <h2 style={{ color:"white", fontSize:22, fontWeight:700, marginBottom:10 }}>Free streaming credits elapsed</h2>
-          <p style={{ color:"#64748b", fontSize:14, lineHeight:1.75, marginBottom:28 }}>Your 30 minutes of free streaming have ended. Subscribe to continue watching, or return to the previous page.</p>
-          <BlueBtn onClick={onUpgrade} style={{ width:"100%", justifyContent:"center", marginBottom:10 }}>Subscribe to Continue</BlueBtn>
+          <h2 style={{ color:"white", fontSize:22, fontWeight:700, marginBottom:10 }}>Streaming limit reached</h2>
+          <p style={{ color:"#64748b", fontSize:14, lineHeight:1.75, marginBottom:28 }}>Your free stream limit has been reached. View plans to continue watching or go back to browse more titles.</p>
+          <BlueBtn onClick={onUpgrade} style={{ width:"100%", justifyContent:"center", marginBottom:10 }}>View Plans</BlueBtn>
           <button onClick={onClose} style={{ width:"100%", padding:"12px", background:"transparent", color:"#475569", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, fontSize:13, cursor:"pointer" }}>Back</button>
         </div>
       </div>
@@ -2166,7 +2166,14 @@ export default function App() {
         });
         const data = await r.json();
         const source = data.video_url || data.stream_url || data.proxy_url || data.embed_url || data.embedUrl;
-        if (!r.ok || !source) throw new Error(data.error || "Video stream unavailable");
+        if (!r.ok || !source) {
+          if (data.limitReached || data.code) {
+            setFreeLimitReached(true);
+            setPreparingItem(null);
+            return;
+          }
+          throw new Error(data.error || "Video stream unavailable");
+        }
         setVideoWatch({ item: {...item, embedUrl: source}, epIdx });
         setPreparingItem(null);
         return;

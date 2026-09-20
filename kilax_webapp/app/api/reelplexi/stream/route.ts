@@ -3,7 +3,10 @@ import { createClient } from '@supabase/supabase-js'
 import { supabaseAdmin } from '@/lib/supabase'
 import ReelplexiService from '@/lib/reelplexi-service'
 
-const MOVIE_FREE_SECONDS = 30 * 60
+const MOVIE_FREE_SECONDS = 40 * 60
+const FREE_SERIES_LIMIT = 2
+const TRIAL_STREAM_LIMIT = 2
+const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000
 
 async function getEntitlement(userId: string, type: string) {
   const [{ data: profile, error: profileError }, { data: activity, error: activityError }] = await Promise.all([
@@ -17,23 +20,17 @@ async function getEntitlement(userId: string, type: string) {
   const profileData = profile || {}
   const subscription = String(profileData.subscription || 'free')
   const expiry = profileData.subscription_expiry_date ? new Date(profileData.subscription_expiry_date).getTime() : 0
-  const isStarter = /starter/i.test(subscription) && expiry > now
-  const isPaid = subscription.toLowerCase() !== 'free' && subscription.toLowerCase() !== 'trial' && !isStarter && expiry > now
+  const isPaid = subscription.toLowerCase() !== 'free' && subscription.toLowerCase() !== 'trial' && expiry > now
   if (isPaid) return null
 
   const events = activity || []
   const trialActive = profileData.trial_status === 'active' && profileData.trial_expires_at && new Date(profileData.trial_expires_at).getTime() > now
   if (trialActive) {
-    const trialStart = profileData.trial_started_at ? new Date(profileData.trial_started_at).toISOString() : new Date(0).toISOString()
-    const used = events.filter((row: any) => row.created_at >= trialStart).length
-    if (used >= 3) return { code: 'TRIAL_STREAM_LIMIT', message: 'Your 2-day trial has reached its 3-stream limit. Subscribe to Premium to keep watching.' }
-    return null
-  }
-
-  if (isStarter) {
-    const startedAt = profileData.subscription_start_date || new Date(0).toISOString()
-    const used = events.filter((row: any) => row.created_at >= startedAt).length
-    if (used >= 2) return { code: 'STARTER_STREAM_LIMIT', message: 'Kilax Starter includes 2 streams. Subscribe to Premium for continued access.' }
+    const since = new Date(now - TWENTY_FOUR_HOURS_MS).toISOString()
+    const used = events.filter((row: any) => row.created_at >= since).length
+    if (used >= TRIAL_STREAM_LIMIT) {
+      return { code: 'TRIAL_STREAM_LIMIT', message: 'Your trial is limited to 2 streams every 24 hours. View plans to continue watching.' }
+    }
     return null
   }
 
@@ -41,13 +38,14 @@ async function getEntitlement(userId: string, type: string) {
   today.setUTCHours(0, 0, 0, 0)
   const todayEvents = events.filter((row: any) => new Date(row.created_at).getTime() >= today.getTime())
   if (type === 'episode' || type === 'series') {
-    if (todayEvents.some((row: any) => row.content_type === 'series' || row.content_type === 'episode')) {
-      return { code: 'FREE_EPISODE_LIMIT', message: 'Your free daily episode has been used. Subscribe to Premium to watch more.' }
+    const seriesStarts = todayEvents.filter((row: any) => row.content_type === 'series' || row.content_type === 'episode').length
+    if (seriesStarts >= FREE_SERIES_LIMIT) {
+      return { code: 'FREE_SERIES_LIMIT', message: 'Your free series access is limited to 2 episodes per day. View plans to continue watching.' }
     }
   } else {
     const movieSeconds = todayEvents.filter((row: any) => row.content_type === 'movie').reduce((sum: number, row: any) => sum + Number(row.watch_seconds || 0), 0)
     if (movieSeconds >= MOVIE_FREE_SECONDS) {
-      return { code: 'FREE_MOVIE_LIMIT', message: 'Your free 30-minute movie allowance has been reached today. Subscribe to Premium to continue watching.' }
+      return { code: 'FREE_MOVIE_LIMIT', message: 'Your free movie access is limited to 40 minutes per day. View plans to continue watching.' }
     }
   }
   return null
