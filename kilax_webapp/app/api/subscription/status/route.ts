@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { supabaseAdmin } from '@/lib/supabase'
+import { userHasActivePaidSubscription } from '@/lib/subscriptions'
 
 // Matches any plan name that grants download access
 const DOWNLOAD_PLANS = /standard|pro|go\s*pro|premium/i
@@ -42,9 +43,10 @@ export async function GET(req: NextRequest) {
       ? new Date(profile.subscription_expiry_date)
       : null
     const trialActive = profile?.trial_status === 'active' && profile?.trial_expires_at && new Date(profile.trial_expires_at) > new Date()
+    const hasActivePaidSubscription = await userHasActivePaidSubscription(user.id)
 
-    const isActive    = (plan.toLowerCase() !== 'free' && !!expiry && expiry > new Date()) || Boolean(trialActive)
-    const canDownload = (isActive && DOWNLOAD_PLANS.test(plan)) || Boolean(trialActive)
+    const isActive    = hasActivePaidSubscription || (plan.toLowerCase() !== 'free' && !!expiry && expiry > new Date()) || Boolean(trialActive)
+    const canDownload = hasActivePaidSubscription || ((isActive && DOWNLOAD_PLANS.test(plan)) || Boolean(trialActive))
 
     return NextResponse.json({
       authenticated: true,

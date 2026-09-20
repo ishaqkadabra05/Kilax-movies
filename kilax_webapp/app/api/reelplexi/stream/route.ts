@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { supabaseAdmin } from '@/lib/supabase'
 import ReelplexiService from '@/lib/reelplexi-service'
+import { userHasActivePaidSubscription } from '@/lib/subscriptions'
 
 const MOVIE_FREE_SECONDS = 40 * 60
 const FREE_SERIES_LIMIT = 2
@@ -22,6 +23,9 @@ async function getEntitlement(userId: string, type: string) {
   const expiry = profileData.subscription_expiry_date ? new Date(profileData.subscription_expiry_date).getTime() : 0
   const isPaid = subscription.toLowerCase() !== 'free' && subscription.toLowerCase() !== 'trial' && expiry > now
   if (isPaid) return null
+
+  const hasActivePaidSubscription = await userHasActivePaidSubscription(userId)
+  if (hasActivePaidSubscription) return null
 
   const events = activity || []
   const trialActive = profileData.trial_status === 'active' && profileData.trial_expires_at && new Date(profileData.trial_expires_at).getTime() > now

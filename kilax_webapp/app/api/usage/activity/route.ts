@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { supabaseAdmin } from '@/lib/supabase'
+import { userHasActivePaidSubscription } from '@/lib/subscriptions'
 
 const EVENT_TYPES = new Set([
   'card_view',
@@ -56,8 +57,9 @@ export async function POST(request: NextRequest) {
         .select('subscription, trial_status, trial_expires_at')
         .eq('id', user.id)
         .maybeSingle()
+      const hasActivePaidSubscription = await userHasActivePaidSubscription(user.id)
       const isTrial = profile?.trial_status === 'active' && profile?.trial_expires_at && new Date(profile.trial_expires_at) > new Date()
-      const isFree = !isTrial && (!profile?.subscription || profile.subscription.toLowerCase() === 'free')
+      const isFree = !hasActivePaidSubscription && !isTrial && (!profile?.subscription || profile.subscription.toLowerCase() === 'free')
 
       if (isTrial) {
         const { data: trialEvents } = await (supabaseAdmin as any)

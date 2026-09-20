@@ -121,6 +121,13 @@ export default function PlayerContent() {
   const seasonParam = searchParams.get('season');
   const episodeParam = searchParams.get('episode');
 
+  const handleStreamLimitError = useCallback((limit: any, fallbackMessage: string) => {
+    const message = limit?.error || fallbackMessage;
+    setLimitCode(limit?.code || null);
+    setError(message);
+    setLoading(false);
+  }, []);
+
   useEffect(() => {
     setResumePosition(0);
     lastProgressSentRef.current = 0;
@@ -231,8 +238,11 @@ export default function PlayerContent() {
                 }
               } else {
                 const limit = await streamRes.json().catch(() => ({}))
-                setLimitCode(limit.code || null)
-                throw new Error(limit.error || 'Unable to start this stream')
+                if (limit?.limitReached || limit?.code || limit?.error) {
+                  handleStreamLimitError(limit, 'Unable to start this stream')
+                  return
+                }
+                throw new Error(limit?.error || 'Unable to start this stream')
               }
             } catch (e) {
               console.warn('Could not fetch movie stream from API:', e)
@@ -287,8 +297,11 @@ export default function PlayerContent() {
                 }
               } else {
                 const limit = await streamRes.json().catch(() => ({}))
-                setLimitCode(limit.code || null)
-                throw new Error(limit.error || 'Unable to start this episode')
+                if (limit?.limitReached || limit?.code || limit?.error) {
+                  handleStreamLimitError(limit, 'Unable to start this episode')
+                  return
+                }
+                throw new Error(limit?.error || 'Unable to start this episode')
               }
             } catch (e) {
               console.warn('Could not fetch secure episode stream:', e)
@@ -409,7 +422,7 @@ export default function PlayerContent() {
     };
 
     fetchStreamUrl();
-  }, [contentId, contentType, episodeId, user, authLoading, isPremium]);
+  }, [contentId, contentType, episodeId, user, authLoading, isPremium, handleStreamLimitError]);
 
   // Fetch all episodes for navigation
   const fetchAllEpisodes = async (seriesId: string, currentEpisodeId: string) => {

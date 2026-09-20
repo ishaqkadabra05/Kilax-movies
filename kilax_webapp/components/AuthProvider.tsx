@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { User } from '@supabase/supabase-js'
 import { legacySupabase, supabase } from '@/lib/supabase'
-import { getUserSubscription } from '@/lib/subscriptions'
+import { getUserSubscription, userHasActivePaidSubscription } from '@/lib/subscriptions'
 
 interface AuthContextType {
   user: User | null
@@ -36,38 +36,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new Error('Subscription check timeout')), 5000)
       )
-      
-      // Get user profile with subscription details including expiry date
-      const profilePromise = supabase
-        .from('profiles')
-        .select('subscription, subscription_expiry_date')
-        .eq('id', currentUser.id)
-        .maybeSingle()
-      
-      const { data: profile, error } = await Promise.race([profilePromise, timeoutPromise]) as any
-      
-      if (error || !profile) {
-        console.log('No profile found or error:', error)
-        setIsPremium(false)
-        return
-      }
 
-      // Check if subscription exists and is not expired
-      const hasSubscription = profile.subscription && profile.subscription !== 'free'
-      const isNotExpired = profile.subscription_expiry_date && 
-                          new Date(profile.subscription_expiry_date) > new Date()
-      
-      const isPremiumUser = hasSubscription && isNotExpired
-      
+      const hasActivePaidSubscription = await Promise.race([
+        userHasActivePaidSubscription(currentUser.id),
+        timeoutPromise,
+      ]) as boolean
+
       console.log('Premium status check:', {
-        hasSubscription,
-        subscription: profile.subscription,
-        expiryDate: profile.subscription_expiry_date,
-        isNotExpired,
-        isPremiumUser
+        hasActivePaidSubscription,
       })
-      
-      setIsPremium(isPremiumUser)
+
+      setIsPremium(hasActivePaidSubscription)
     } catch (error) {
       console.error('Error checking premium status:', error)
       // Don't let subscription errors block the auth flow

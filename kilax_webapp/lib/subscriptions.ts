@@ -20,6 +20,43 @@ export async function getSubscriptionPlans(): Promise<SubscriptionPlan[]> {
   return data || []
 }
 
+export async function userHasActivePaidSubscription(userId: string): Promise<boolean> {
+  try {
+    const now = Date.now()
+    const { data: profile, error: profileError } = await subscriptionDb
+      .from('profiles')
+      .select('subscription, subscription_expiry_date, trial_status, trial_expires_at')
+      .eq('id', userId)
+      .maybeSingle()
+
+    if (!profileError && profile) {
+      const planName = String(profile.subscription || '').trim().toLowerCase()
+      const expiry = profile.subscription_expiry_date ? new Date(profile.subscription_expiry_date).getTime() : 0
+      const hasLiveProfilePlan = Boolean(planName) && planName !== 'free' && planName !== 'trial' && expiry > now
+      if (hasLiveProfilePlan) return true
+    }
+
+    const { data: subscriptions, error: subscriptionsError } = await subscriptionDb
+      .from('subscriptions')
+      .select('status, subscription_type, expiry_date')
+      .eq('user_id', userId)
+
+    if (subscriptionsError) {
+      console.error('Error fetching active subscriptions:', subscriptionsError)
+      return false
+    }
+
+    return (subscriptions || []).some((row: any) => {
+      const expiry = row?.expiry_date ? new Date(row.expiry_date).getTime() : 0
+      const isPaid = row?.subscription_type === 'paid' || row?.status === 'active'
+      return Boolean(isPaid && expiry > now)
+    })
+  } catch (error) {
+    console.error('Error checking active paid subscription:', error)
+    return false
+  }
+}
+
 // Get user's current subscription
 export async function getUserSubscription(userId: string): Promise<Subscription | null> {
   try {
