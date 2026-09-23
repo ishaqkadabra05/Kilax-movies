@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
         const dayStart = Date.now() - 24 * 60 * 60 * 1000
         const recentStreams = (trialEvents || []).filter((row: { created_at: string }) => new Date(row.created_at).getTime() >= dayStart).length
         if (recentStreams >= TRIAL_STREAM_LIMIT) {
-          return NextResponse.json({ error: 'Your trial stream limit is reached. View plans to continue watching.', code: 'TRIAL_STREAM_LIMIT', limitReached: true, subscribeUrl: '/subscribe' }, { status: 403 })
+          return NextResponse.json({ error: 'Your trial stream limit is reached. View your profile to continue watching.', code: 'TRIAL_STREAM_LIMIT', limitReached: true, subscribeUrl: '/profile' }, { status: 403 })
         }
       }
 
@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
             .filter((row: { created_at: string; content_type: string }) => row.content_type === 'movie' && new Date(row.created_at) >= today)
             .reduce((total: number, row: { watch_seconds?: number }) => total + Number(row.watch_seconds || 0), 0)
           if (watchedToday >= FREE_MOVIE_LIMIT_SECONDS) {
-            return NextResponse.json({ error: 'Your free movie limit is reached. View plans to continue watching.', code: 'FREE_MOVIE_LIMIT', limitReached: true, subscribeUrl: '/subscribe' }, { status: 403 })
+            return NextResponse.json({ error: 'Your free movie limit is reached. View your profile to continue watching.', code: 'FREE_MOVIE_LIMIT', limitReached: true, subscribeUrl: '/profile' }, { status: 403 })
           }
         }
 
@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
             .filter((row: { created_at: string; content_type: string }) => ['series', 'episode'].includes(row.content_type) && new Date(row.created_at) >= today)
             .length
           if (episodesToday >= FREE_SERIES_LIMIT_EPISODES) {
-            return NextResponse.json({ error: 'Your free series limit is reached. View plans to continue watching.', code: 'FREE_SERIES_LIMIT', limitReached: true, subscribeUrl: '/subscribe' }, { status: 403 })
+            return NextResponse.json({ error: 'Your free series limit is reached. View your profile to continue watching.', code: 'FREE_SERIES_LIMIT', limitReached: true, subscribeUrl: '/profile' }, { status: 403 })
           }
         }
       }

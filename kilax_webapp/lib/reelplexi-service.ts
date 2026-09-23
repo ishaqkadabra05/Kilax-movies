@@ -302,9 +302,58 @@ class ReelplexiService {
     return isNaN(parsed) ? undefined : `${parsed}-01-01`
   }
 
+  private static parseRatingValue(value: any): number | null {
+    if (value === null || value === undefined || value === '') return null
+
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      if (value > 0 && value <= 10) return Number(value.toFixed(1))
+      if (value > 10 && value <= 100) return Number((value / 10).toFixed(1))
+      return null
+    }
+
+    if (typeof value === 'string') {
+      const cleaned = value.trim()
+      if (!cleaned || cleaned.toLowerCase() === 'n/a' || cleaned.toLowerCase() === 'nr') return null
+
+      const normalized = cleaned.replace(/\s+/g, '')
+      const isRatingLikeString = /^\d+(?:\.\d+)?(?:\/10|\/100|%)?$/.test(normalized)
+      if (!isRatingLikeString) return null
+
+      const numeric = Number(normalized.replace(/%$/, '').replace(/\/10$/, '').replace(/\/100$/, ''))
+      if (!Number.isFinite(numeric) || numeric <= 0) return null
+
+      if (numeric <= 10) return Number(numeric.toFixed(1))
+      if (numeric <= 100) return Number((numeric / 10).toFixed(1))
+      return null
+    }
+
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        const parsed = this.parseRatingValue(item)
+        if (parsed !== null) return parsed
+      }
+      return null
+    }
+
+    if (typeof value === 'object') {
+      const keys = ['value', 'score', 'rating', 'average', 'avg', 'imdb', 'tmdb']
+      for (const key of keys) {
+        const parsed = this.parseRatingValue((value as Record<string, any>)[key])
+        if (parsed !== null) return parsed
+      }
+
+      for (const item of Object.values(value as Record<string, any>)) {
+        const parsed = this.parseRatingValue(item)
+        if (parsed !== null) return parsed
+      }
+    }
+
+    return null
+  }
+
   private static getScore(raw: any): number {
     // Try every known field name Reelplexi uses for numeric scores.
-    // Also handles nested objects like { ratings: { imdb: 7.5 } }
+    // Also handles nested objects like { ratings: { imdb: '8.5' } }
     const direct = [
       raw.score,
       raw.vote_average,
@@ -314,29 +363,24 @@ class ReelplexiService {
       raw.reelplexi_score,
       raw.audience_score,
       raw.critics_score,
+      typeof raw.rating === 'number' ? raw.rating : null,
+      typeof raw.rating === 'string' ? raw.rating : null,
     ]
 
     const nested = raw.ratings
       ? [raw.ratings?.imdb, raw.ratings?.tmdb, raw.ratings?.average, raw.ratings?.score, raw.ratings?.value]
       : []
 
-    const ratingNumeric = typeof raw.rating === 'number' && raw.rating > 0 && raw.rating <= 10
-      ? raw.rating
-      : null
-
-    const candidates = [...direct, ...nested, ratingNumeric]
+    const candidates = [...direct, ...nested]
     let score = candidates
-      .map(v => Number(v))
-      .find(v => Number.isFinite(v) && v > 0 && v <= 10) ?? 0
+      .map(v => this.parseRatingValue(v))
+      .find((v): v is number => v !== null) ?? 0
 
     // Fall back to popularity / 100 (Reelplexi returns 0–1000+)
     if (score === 0 && raw.popularity) {
       const pop = Number(raw.popularity)
       if (pop > 0) score = Math.min(10, parseFloat((pop / 100).toFixed(1)))
     }
-
-    // Normalise 100-point scales to 0–10
-    if (score > 10) score = parseFloat((score / 10).toFixed(1))
 
     return score
   }
@@ -418,11 +462,15 @@ class ReelplexiService {
     }
   }
 
-  static async getMovieStream(id: string): Promise<{ stream_url: string; is_embed: boolean }> {
+  static async getMovieStream(id: string): Promise<{ stream_url: string; is_embed: boolean; hls_url?: string }> {
     // The stream endpoint returns both the raw URL and the documented embed URL.
     try {
       const response = await this.getJson(`/v1/stream/movie/${encodeURIComponent(id)}`)
       const streamData = response.data || response
+      const hlsUrl = streamData.hls_url || streamData.m3u8_url || streamData.playlist_url || streamData.manifest_url
+      if (hlsUrl) {
+        return { stream_url: hlsUrl, is_embed: false, hls_url: hlsUrl }
+      }
       if (streamData.stream_url) {
         return { stream_url: streamData.stream_url, is_embed: false }
       }
@@ -464,10 +512,14 @@ class ReelplexiService {
     }
   }
 
-  static async getEpisodeStream(seriesId: string, season: number, episode: number): Promise<{ stream_url: string; is_embed: boolean }> {
+  static async getEpisodeStream(seriesId: string, season: number, episode: number): Promise<{ stream_url: string; is_embed: boolean; hls_url?: string }> {
     try {
       const response = await this.getJson(`/v1/stream/tv/${encodeURIComponent(seriesId)}/${season}/${episode}`)
       const streamData = response.data || response
+      const hlsUrl = streamData.hls_url || streamData.m3u8_url || streamData.playlist_url || streamData.manifest_url
+      if (hlsUrl) {
+        return { stream_url: hlsUrl, is_embed: false, hls_url: hlsUrl }
+      }
       if (streamData.stream_url) {
         return { stream_url: streamData.stream_url, is_embed: false }
       }

@@ -90,7 +90,7 @@ function EpisodesOverlay({ episodes, currentEpisodeIndex, isFullscreen, onClose,
   const { checkAuth } = useAuthCheck()
 
   return (
-    <div className={`fixed inset-0 bg-black/90 flex ${isFullscreen ? 'z-[999999]' : 'z-[99999]'}`}>
+    <div className={`fixed inset-0 bg-black/90 flex ${isFullscreen ? 'z-999999' : 'z-99999'}`}>
       <div className="hidden lg:flex lg:w-1/2 items-center justify-center p-8">
         <div className="text-center text-white">
           <h1 className="text-3xl font-bold mb-2">Episodes</h1>
@@ -126,7 +126,7 @@ function EpisodesOverlay({ episodes, currentEpisodeIndex, isFullscreen, onClose,
                   onKeyDown={(e) => { if (canAccess && (e.key === 'Enter' || e.key === ' ')) onSelect(ep) }}
                 >
                   <div className="flex items-center gap-3 lg:gap-4">
-                    <div className="relative w-16 h-10 lg:w-20 lg:h-12 bg-gray-700 rounded overflow-hidden flex-shrink-0">
+                    <div className="relative w-16 h-10 lg:w-20 lg:h-12 bg-gray-700 rounded overflow-hidden shrink-0">
                       {ep.thumbnail_url
                         ? <img src={ep.thumbnail_url} alt={ep.title} className="w-full h-full object-cover" />
                         : <div className="absolute inset-0 flex items-center justify-center">
@@ -138,7 +138,7 @@ function EpisodesOverlay({ episodes, currentEpisodeIndex, isFullscreen, onClose,
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-white text-sm lg:text-base font-medium truncate">{ep.title}</span>
-                        {isPremium && <span className="text-xs bg-orange-500 text-white px-2 py-0.5 rounded flex-shrink-0">Premium</span>}
+                        {isPremium && <span className="text-xs bg-orange-500 text-white px-2 py-0.5 rounded shrink-0">Premium</span>}
                       </div>
                       <div className="text-xs lg:text-sm text-gray-400">{ep.seasonName} • Episode {ep.episode_number}</div>
                       {!canAccess && <div className="text-xs text-red-400 mt-1">{isPremium ? 'Premium Required' : 'Login Required'}</div>}
@@ -199,6 +199,28 @@ function ArtPlayerCore({
   const controlsHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const stableOnEnded = useCallback(() => { onEnded?.() }, [onEnded])
+  const onLoadRef = useRef(onLoad)
+  const onErrorRef = useRef(onError)
+  const onProgressRef = useRef(onProgress)
+  const onEpisodeSelectRef = useRef(onEpisodeSelect)
+
+  useEffect(() => { onLoadRef.current = onLoad }, [onLoad])
+  useEffect(() => { onErrorRef.current = onError }, [onError])
+  useEffect(() => { onProgressRef.current = onProgress }, [onProgress])
+  useEffect(() => { onEpisodeSelectRef.current = onEpisodeSelect }, [onEpisodeSelect])
+
+  const getStreamErrorMessage = useCallback((error: any) => {
+    const rawMessage = typeof error?.message === 'string' ? error.message.trim() : ''
+    if (rawMessage && /(stream|limit|premium|trial|subscription|plan|watching|continue)/i.test(rawMessage)) {
+      return rawMessage
+    }
+
+    if ((error as any)?.type === 'network') {
+      return 'The stream is temporarily unavailable. Please check your connection and refresh the page.'
+    }
+
+    return 'Video stream failed to load. Please refresh the page or upgrade your plan to continue watching.'
+  }, [])
 
   useEffect(() => {
     const handlePageExit = () => {
@@ -497,11 +519,9 @@ function ArtPlayerCore({
     // ── Events ────────────────────────────────────────────────────────────
 
     art.on('error', (error) => {
-      const message = (error as any)?.type === 'network'
-        ? 'The stream could not be loaded from the media server. Please check your connection and refresh the page.'
-        : 'Video stream failed to load. Please refresh the page or try another title.'
+      const message = getStreamErrorMessage(error)
       setAuthError(message)
-      onError?.(error)
+      onErrorRef.current?.(error)
     })
 
     art.on('play',  () => {
@@ -512,7 +532,7 @@ function ArtPlayerCore({
     art.on('pause', () => { setIsPlaying(false); document.body.style.overflow = 'auto'; window.dispatchEvent(new Event('kilax-player-paused')) })
     art.on('video:ended', () => stableOnEnded())
     art.on('video:timeupdate', () => {
-      onProgress?.(Math.floor(art.currentTime || 0), Math.floor(art.duration || 0))
+      onProgressRef.current?.(Math.floor(art.currentTime || 0), Math.floor(art.duration || 0))
       if (maxWatchSeconds && art.currentTime >= maxWatchSeconds) {
         art.pause()
         onLimitReached?.()
@@ -520,7 +540,7 @@ function ArtPlayerCore({
     })
 
     art.on('ready', () => {
-      onLoad?.()
+      onLoadRef.current?.()
       if (initialPosition > 0 && art.duration > initialPosition + 3) art.currentTime = initialPosition
 
       const tryPlay = async () => {
@@ -608,7 +628,7 @@ function ArtPlayerCore({
       document.body.style.overflow = 'auto'
       unlockOrientation()
     }
-  }, [resolvedUrl, poster, stableOnEnded, onLoad, onError, onProgress, initialPosition, contentType, episodes, currentEpisodeIndex, onEpisodeSelect])
+  }, [resolvedUrl, poster, stableOnEnded, initialPosition, contentType, episodes, currentEpisodeIndex, getStreamErrorMessage])
 
   if (authError) {
     return (
@@ -765,7 +785,14 @@ function NativeHLSPlayer({
           onLoadedData={() => onLoad?.()}
           onTimeUpdate={() => { const video = videoRef.current; if (video) onProgress?.(Math.floor(video.currentTime || 0), Math.floor(video.duration || 0)) }}
           onEnded={() => onEnded?.()}
-          onError={(e) => { setStreamError('Video failed to load. Please check your connection or try again.'); onError?.(e) }}
+          onError={(e) => {
+            const rawMessage = typeof (e as any)?.target?.error?.message === 'string' ? (e as any).target.error.message.trim() : ''
+            const message = rawMessage && /(stream|limit|premium|trial|subscription|plan|watching|continue)/i.test(rawMessage)
+              ? rawMessage
+              : 'Video failed to load. Please check your connection, refresh the page, or upgrade your plan to continue watching.'
+            setStreamError(message)
+            onError?.(e)
+          }}
         />
       </div>
 

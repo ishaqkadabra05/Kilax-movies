@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
 
     const entitlementError = await getEntitlement(user.id, type)
     if (entitlementError) {
-      return NextResponse.json({ error: entitlementError.message, code: entitlementError.code, limitReached: true, subscribeUrl: '/subscribe' }, { status: 403 })
+      return NextResponse.json({ error: entitlementError.message, code: entitlementError.code, limitReached: true, subscribeUrl: '/profile' }, { status: 403 })
     }
 
     const result = type === 'movie'
@@ -106,6 +106,15 @@ export async function GET(request: NextRequest) {
         { status: 404 }
       )
     }
+
+    // iOS Safari cannot decode MKV. Prefer an HLS URL supplied by Reelplexi;
+    // the service response is already selected as stream_url when available.
+    const userAgent = request.headers.get('user-agent') || ''
+    const isIOS = /iPhone|iPad|iPod|Macintosh.*Mobile/i.test(userAgent)
+    const isMkv = /\.mkv(?:$|[?#])/i.test(result.stream_url)
+    let streamUrl = result.stream_url
+    let isEmbed = result.is_embed
+    if (isIOS && isMkv && !result.hls_url) isEmbed = true
 
     {
         const title = type === 'movie' ? 'Movie' : `Episode ${episode}`
@@ -126,8 +135,8 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({
-      stream_url: result.stream_url,
-      is_embed:   result.is_embed,
+      stream_url: streamUrl,
+      is_embed:   isEmbed,
     })
 
   } catch (error) {

@@ -14,13 +14,13 @@ import ReelplexiService from '@/lib/reelplexi-service'
 export async function GET() {
   try {
     const [movies, series] = await Promise.all([
-      ReelplexiService.getMovies(1, 50),
-      ReelplexiService.getSeries(1, 50),
+      ReelplexiService.getMovies(1, 36),
+      ReelplexiService.getSeries(1, 36),
     ])
 
     const [enrichedMovies, enrichedSeries] = await Promise.all([
-      enrichItems(movies,  'movie',  30),
-      enrichItems(series,  'series', 30),
+      enrichItems(movies,  'movie',  8),
+      enrichItems(series,  'series', 8),
     ])
 
     return NextResponse.json({ movies: enrichedMovies, series: enrichedSeries })
@@ -85,17 +85,75 @@ async function enrichItems(
 function extractScore(raw: any): number {
   if (!raw) return 0
 
+  const parseScoreValue = (value: any): number | null => {
+    if (value === null || value === undefined || value === '') return null
+
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      if (value > 0 && value <= 10) return Number(value.toFixed(1))
+      if (value > 10 && value <= 100) return Number((value / 10).toFixed(1))
+      return null
+    }
+
+    if (typeof value === 'string') {
+      const trimmed = value.trim()
+      if (!trimmed || trimmed.toLowerCase() === 'n/a' || trimmed.toLowerCase() === 'nr') return null
+
+      const normalized = trimmed.replace(/\s+/g, '')
+      const isRatingLikeString = /^\d+(?:\.\d+)?(?:\/10|\/100|%)?$/.test(normalized)
+      if (!isRatingLikeString) return null
+
+      const numeric = Number(normalized.replace(/%$/, '').replace(/\/10$/, '').replace(/\/100$/, ''))
+      if (!Number.isFinite(numeric) || numeric <= 0) return null
+
+      if (numeric <= 10) return Number(numeric.toFixed(1))
+      if (numeric <= 100) return Number((numeric / 10).toFixed(1))
+      return null
+    }
+
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        const parsed = parseScoreValue(item)
+        if (parsed !== null) return parsed
+      }
+      return null
+    }
+
+    if (typeof value === 'object') {
+      const nestedKeys = ['value', 'score', 'rating', 'average', 'avg', 'imdb', 'tmdb']
+      for (const key of nestedKeys) {
+        const parsed = parseScoreValue((value as Record<string, any>)[key])
+        if (parsed !== null) return parsed
+      }
+
+      for (const item of Object.values(value as Record<string, any>)) {
+        const parsed = parseScoreValue(item)
+        if (parsed !== null) return parsed
+      }
+    }
+
+    return null
+  }
+
   const direct = [
     raw.vote_average,
     raw.imdb_rating,
     raw.imdb_score,
     raw.score,
+    raw.average_rating,
+    raw.audience_score,
+    raw.critics_score,
+    raw.ratings?.imdb,
+    raw.ratings?.tmdb,
+    raw.ratings?.average,
+    raw.ratings?.score,
+    raw.ratings?.value,
     typeof raw.rating === 'number' ? raw.rating : null,
+    typeof raw.rating === 'string' ? raw.rating : null,
   ]
-    .map(v => Number(v))
-    .find(v => Number.isFinite(v) && v > 0 && v <= 10)
+    .map(parseScoreValue)
+    .find((v): v is number => v !== null)
 
-  if (direct != null) return parseFloat(direct.toFixed(1))
+  if (direct != null) return direct
 
   // Fall back: popularity normalised to 0–10
   if (raw.popularity) {

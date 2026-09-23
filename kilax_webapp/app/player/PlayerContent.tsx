@@ -131,7 +131,7 @@ export default function PlayerContent() {
   useEffect(() => {
     setResumePosition(0);
     lastProgressSentRef.current = 0;
-    if (!user || !contentId || !contentType) return;
+    if (!user?.id || !contentId || !contentType) return;
     const loadProgress = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
@@ -144,7 +144,7 @@ export default function PlayerContent() {
       } catch { /* resume is non-critical */ }
     };
     void loadProgress();
-  }, [user, contentId, contentType, seasonParam, episodeParam]);
+  }, [user?.id, contentId, contentType, seasonParam, episodeParam]);
 
   const handlePlaybackProgress = useCallback((positionSeconds: number, durationSeconds: number) => {
     if (!user || !contentId || !contentType || positionSeconds < 1) return;
@@ -384,6 +384,28 @@ export default function PlayerContent() {
             } else if (contentId) {
               await fetchAllEpisodes(contentId, episodeId);
             }
+          }
+        }
+
+        // iOS Safari cannot decode MKV directly. Legacy records may still
+        // provide a raw MKV URL, so resolve those through the Reelplexi embed
+        // player just like the primary stream path does.
+        if (/iPhone|iPad|iPod/i.test(window.navigator.userAgent) && /\.mkv(?:$|[?#])/i.test(videoUrl)) {
+          const { data: { session } } = await supabase.auth.getSession();
+          const streamParams = new URLSearchParams({
+            type: contentType === 'movie' ? 'movie' : 'episode',
+            id: contentId,
+          });
+          if (contentType !== 'movie') {
+            streamParams.set('season', seasonParam || '1');
+            streamParams.set('episode', episodeParam || '1');
+          }
+          const embedResponse = await fetch(`/api/reelplexi/stream?${streamParams.toString()}`, {
+            headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
+          });
+          if (embedResponse.ok) {
+            const embedData = await embedResponse.json();
+            if (embedData.is_embed && embedData.stream_url) videoUrl = embedData.stream_url;
           }
         }
 
@@ -669,10 +691,10 @@ export default function PlayerContent() {
               Go Back
             </Button>
             {limitCode && <Button
-              onClick={() => router.push('/subscribe')}
+              onClick={() => router.push('/profile')}
               className="w-full bg-orange-500 hover:bg-orange-600 h-11 text-base font-medium"
             >
-              Subscribe to Premium
+              View Profile
             </Button>}
           </div>
         </div>
@@ -707,7 +729,7 @@ export default function PlayerContent() {
       </div>}
 
       {/* Video Player Container */}
-      <div className="relative w-full max-h-[100dvh]" style={{ aspectRatio: '16/9' }}>
+      <div className="relative w-full max-h-dvh" style={{ aspectRatio: '16/9' }}>
         {switchingEpisode && (
           <div className="absolute inset-0 bg-black/80 z-40 flex items-center justify-center">
             <div className="text-center text-white">
@@ -742,6 +764,7 @@ export default function PlayerContent() {
           currentEpisodeIndex={currentEpisodeIndex}
           onEpisodeSelect={handleEpisodeSelect}
           contentType={contentType || undefined}
+          userId={user?.id}
         />
       </div>
 

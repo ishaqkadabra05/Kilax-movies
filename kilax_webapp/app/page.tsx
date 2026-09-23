@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
 
-import { signInWithEmail } from "@/lib/auth";
+import { signInWithEmail, signOut } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 import { Search, Phone, Bell, X, ChevronLeft, ChevronRight, Plus, Check, Bookmark, Home, Film, Tv2, Heart, History, Smartphone, UserRound, Crown, Library, Flame, Sparkles, Clapperboard, Compass, Share2, Users, Gift, Link2, Play, Clapperboard as ClapperIcon } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -19,6 +20,7 @@ import { useCatalogCollection } from "@/hooks/useCatalogCollection";
 import { useNotifications } from "@/hooks/useNotifications";
 import { AVATARS, BG, BLUE, CARD, DEFAULT_AVATAR, GREEN, ORANGE, SKYBLUE, VJS } from "@/lib/ui-config";
 import { mapMediaItem } from "@/lib/media-normalizer";
+import { randomDicebearAvatar } from "@/lib/avatar";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -56,7 +58,7 @@ const inputSt: React.CSSProperties = {
 // ─── Avatar ───────────────────────────────────────────────────────────────────
 function Avatar({ emoji, bg, size=40, ring=false }: { emoji:string; bg:string; size?:number; ring?:boolean }) {
   return (
-    <div style={{ width:size, height:size, borderRadius:"50%", background:bg, flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", fontSize:size*0.44, boxShadow:ring?`0 0 0 3px rgba(59,130,246,0.5),0 0 0 5px rgba(59,130,246,0.15)`:"0 4px 16px rgba(0,0,0,0.4)" }}>{emoji}</div>
+    <div style={{ width:size, height:size, borderRadius:"50%", background:bg, flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", fontSize:size*0.44, overflow:"hidden", boxShadow:ring?`0 0 0 3px rgba(59,130,246,0.5),0 0 0 5px rgba(59,130,246,0.15)`:"0 4px 16px rgba(0,0,0,0.4)" }}>{emoji.startsWith("http") ? <img src={emoji} alt="Profile avatar" style={{width:"100%",height:"100%",display:"block"}} /> : emoji}</div>
   );
 }
 
@@ -67,7 +69,7 @@ function AvatarPicker({ selected, onSelect }: { selected:number; onSelect:(i:num
       <div style={{ display:"flex", gap:8, justifyContent:"space-between" }}>
         {AVATARS.map((av,i) => (
           <button key={i} onClick={()=>onSelect(i)} style={{ background:"none", border:"none", cursor:"pointer", padding:0, flex:1, display:"flex", justifyContent:"center" }}>
-            <div style={{ width:38, height:38, borderRadius:"50%", background:av.bg, display:"flex", alignItems:"center", justifyContent:"center", fontSize:17, outline:selected===i?`2px solid ${BLUE}`:"2px solid transparent", outlineOffset:3, boxShadow:selected===i?`0 0 0 4px rgba(59,130,246,0.2)`:"none", transform:selected===i?"scale(1.12)":"scale(1)", transition:"all 0.18s" }}>{av.emoji}</div>
+            <div style={{ width:38, height:38, borderRadius:"50%", background:av.bg, display:"flex", alignItems:"center", justifyContent:"center", fontSize:17, overflow:"hidden", outline:selected===i?`2px solid ${BLUE}`:"2px solid transparent", outlineOffset:3, boxShadow:selected===i?`0 0 0 4px rgba(59,130,246,0.2)`:"none", transform:selected===i?"scale(1.12)":"scale(1)", transition:"all 0.18s" }}><img src={av.emoji} alt={`Avatar ${i + 1}`} style={{width:"100%",height:"100%",display:"block"}} /></div>
           </button>
         ))}
       </div>
@@ -88,16 +90,11 @@ function WhatsAppIcon({ size=24 }: { size?:number }) {
 
 // ─── Atoms ────────────────────────────────────────────────────────────────────
 function RatingBadge({ r }: { r:string }) {
-  return <span style={{ border:"1px solid rgba(255,255,255,0.18)", borderRadius:5, fontSize:10, padding:"2px 7px", color:"#94a3b8", fontWeight:600, flexShrink:0 }}>{r}</span>;
+  return null;
 }
 
 function StarRating({ score }: { score:number }) {
-  return (
-    <span style={{ display:"inline-flex", alignItems:"center", gap:3 }}>
-      <span style={{ color:"#f59e0b", fontSize:12, lineHeight:1 }}>★</span>
-      <span style={{ color:"#94a3b8", fontSize:11 }}>{score.toFixed(1)}</span>
-    </span>
-  );
+  return null;
 }
 
 function BlueBtn({ children, onClick, style }: { children:React.ReactNode; onClick?:()=>void; style?:React.CSSProperties }) {
@@ -138,7 +135,7 @@ function TrailerButton({ item, style }: { item:MediaItem; style?:React.CSSProper
   const trailer = trailers[0];
   return <>
     <button onClick={() => trailer && setOpen(true)} disabled={loading || !trailer} aria-label={loading ? "Loading trailer" : trailer ? "Play trailer" : "Trailer unavailable"} style={{ ...style, opacity:loading || !trailer ? 0.5 : 1, cursor:loading || !trailer ? "default" : "pointer" }}>
-      <Play size={14} fill="currentColor" /> {loading ? "Loading trailer..." : "Play Trailer"}
+          <Play size={14} fill="currentColor" /> {loading ? "Loading trailer..." : "Play Trailer"}
     </button>
     {open && trailer && <div onClick={() => setOpen(false)} style={{ position:"fixed", inset:0, zIndex:240, background:"rgba(0,0,0,.9)", display:"grid", placeItems:"center", padding:24 }}>
       <div onClick={event => event.stopPropagation()} style={{ width:"100%", maxWidth:900, position:"relative" }}>
@@ -210,7 +207,7 @@ function AuthModal({ initialMode, onSuccess, onClose }: { initialMode:AuthMode; 
       }
       const normalizedPhone = selectedCountry ? normalizeInternationalPhone(selectedCountry.dialCode, phone) : "";
       if (mode === "signup") {
-        const result = await supabase.auth.signUp({ email: email.trim().toLowerCase(), password: pass, options: { data: { phone: normalizedPhone } } });
+        const result = await supabase.auth.signUp({ email: email.trim().toLowerCase(), password: pass, options: { data: { phone: normalizedPhone, avatar_url: randomDicebearAvatar() } } });
         if (result.error) { alert(result.error.message); return; }
         const authUser = result.data.user;
         onSuccess({ name:name || authUser?.user_metadata?.full_name || "Kilax Viewer", email:authUser?.email || email, phone:normalizedPhone||authUser?.user_metadata?.phone||"", joinDate:new Date().toLocaleDateString("en-US",{year:"numeric",month:"long",day:"numeric"}), avatar:av.emoji, avatarBg:av.bg });
@@ -424,7 +421,7 @@ function SeriesDetailPage({ series, onClose, onWatch }: { series:MediaItem; onCl
 
   return (
     <div style={{ position:"fixed", inset:0, zIndex:70, background:BG, overflowY:"auto", paddingTop:`env(safe-area-inset-top,0px)` }}>
-      <div style={{ position:"relative", height:mobile?"42vh":"52vh", minHeight:300, overflow:"hidden" }}>
+      <div style={{ position:"relative", height:mobile?680:620, minHeight:mobile?680:620, overflow:"hidden" }}>
         <img src={series.heroImage||series.image} alt={series.title} style={{ width:"100%", height:"100%", objectFit:"cover" }} />
         <div style={{ position:"absolute", inset:0, background:"linear-gradient(to right,rgba(13,17,23,0.97) 0%,rgba(13,17,23,0.55) 55%,rgba(13,17,23,0.08) 100%)" }} />
         <div style={{ position:"absolute", inset:0, background:"linear-gradient(to top,#0d1117 0%,transparent 50%)" }} />
@@ -435,7 +432,7 @@ function SeriesDetailPage({ series, onClose, onWatch }: { series:MediaItem; onCl
             
             <StarRating score={seriesScore} /><span style={{color:"#94a3b8",fontSize:12}}>{seriesYear}</span>
           </div>
-          <h1 style={{ fontFamily:"'Anton',sans-serif", fontSize:mobile?30:48, color:"white", lineHeight:0.95, marginBottom:14, letterSpacing:"0.01em" }}>{series.title}</h1>
+          <h1 style={{ fontFamily:"'Anton',sans-serif", fontSize:mobile?30:48, color:"white", lineHeight:0.95, marginBottom:14, letterSpacing:"0.01em", textShadow:"2px 2px 0 #050709,-2px -2px 0 #050709,2px -2px 0 #050709,-2px 2px 0 #050709" }}>{series.title}</h1>
           <div style={{ display:"flex", gap:14, flexWrap:"wrap", marginBottom:14, fontSize:13, alignItems:"center" }}>
             <StarRating score={seriesScore} />
             <span style={{ color:"#94a3b8" }}>{seriesYear}</span>
@@ -572,7 +569,6 @@ function MediaCard({ item, myList, onToggleList, onOpen, inRow=false, listAction
   const [posterFailed, setPosterFailed] = useState(false);
   const [sharing, setSharing] = useState(false);
   const inList = myList.has(item.id);
-  const score = Number(item.score || 0);
   const year = item.year;
   const genres = item.genres.filter((g:string)=>g.toLowerCase() !== 'musical').slice(0,3);
   const poster = !posterFailed && item.image ? item.image : (item.image || `https://via.placeholder.com/500x750/111827/94a3b8?text=${encodeURIComponent(item.title)}`);
@@ -588,12 +584,12 @@ function MediaCard({ item, myList, onToggleList, onOpen, inRow=false, listAction
         <div style={{ position:"absolute", bottom:10, right:10, background:"rgba(59,130,246,0.84)", color:"#fff", fontSize:mobile?8:9, fontWeight:800, boxShadow:"0 0 14px rgba(59,130,246,.7)", padding:mobile?"3px 6px":"4px 9px", borderRadius:999, border:"1px solid rgba(147,197,253,.4)", maxWidth:mobile?"58%":"70%", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{vj}</div>
       </div>
       <div style={{ padding:"10px 3px 2px", display:"grid", gap:7 }}>
-        <div style={{ display:"flex", alignItems:"center", gap:7, flexWrap:"wrap", minHeight:20 }}>
-          <StarRating score={score}/><span style={{color:"#94a3b8",fontSize:11}}>{year || "—"}</span>
+        <div style={{ display:"flex", alignItems:"center", gap:6, minHeight:20, width:"100%" }}>
+          {listAction === "icon" && <button onClick={e=>{e.stopPropagation();onToggleList(item.id);}} aria-label={inList?"Remove from My List":"Add to My List"} title={inList?"Remove from My List":"Add to My List"} style={{width:26,height:26,minHeight:26,minWidth:26,padding:0,borderRadius:7,border:`1px solid ${inList?ORANGE:"rgba(255,255,255,.18)"}`,background:inList?"rgba(249,115,22,.14)":"rgba(255,255,255,.05)",color:inList?ORANGE:"#cbd5e1",cursor:"pointer",display:"inline-flex",alignItems:"center",justifyContent:"center"}}><Bookmark size={14} fill={inList?"currentColor":"none"}/></button>}
+          <button onClick={async e=>{e.stopPropagation();setSharing(true);await share(item);setSharing(false);}} aria-label="Share" title="Share & earn 50 coins" style={{width:26,height:26,minHeight:26,minWidth:26,padding:0,borderRadius:7,border:"1px solid rgba(16,185,129,.35)",background:"rgba(16,185,129,.08)",color:sharing?"#6ee7b7":"#10b981",cursor:"pointer",display:"inline-flex",alignItems:"center",justifyContent:"center"}}><Share2 size={12}/></button>
+          <span style={{ marginLeft:"auto", color:"#94a3b8", fontSize:11 }}>{year || "—"}</span>
         </div>
         <div style={{display:"flex",alignItems:"center",gap:4,flexWrap:"wrap",minHeight:20}}>
-          {listAction === "icon" && <button onClick={e=>{e.stopPropagation();onToggleList(item.id);}} aria-label={inList?"Remove from My List":"Add to My List"} title={inList?"Remove from My List":"Add to My List"} style={{marginLeft:2,width:26,height:26,minHeight:26,minWidth:26,padding:0,borderRadius:7,border:`1px solid ${inList?ORANGE:"rgba(255,255,255,.18)"}`,background:inList?"rgba(249,115,22,.14)":"rgba(255,255,255,.05)",color:inList?ORANGE:"#cbd5e1",cursor:"pointer",display:"inline-flex",alignItems:"center",justifyContent:"center"}}><Bookmark size={14} fill={inList?"currentColor":"none"}/></button>}
-          <button onClick={async e=>{e.stopPropagation();setSharing(true);await share(item);setSharing(false);}} aria-label="Share" title="Share & earn 50 coins" style={{width:26,height:26,minHeight:26,minWidth:26,padding:0,borderRadius:7,border:"1px solid rgba(16,185,129,.35)",background:"rgba(16,185,129,.08)",color:sharing?"#6ee7b7":"#10b981",cursor:"pointer",display:"inline-flex",alignItems:"center",justifyContent:"center"}}><Share2 size={12}/></button>
           {genres.map((g:string)=><span key={g} style={{fontSize:9,color:"#93c5fd",background:"rgba(59,130,246,.1)",border:"1px solid rgba(59,130,246,.18)",padding:"2px 7px",borderRadius:10}}>{g}</span>)}
         </div>
         {listAction === "button" && <button onClick={e=>{e.stopPropagation();onToggleList(item.id);}} style={{justifySelf:"start",fontSize:10,padding:"5px 12px",borderRadius:20,border:`1px solid ${inList?ORANGE:"rgba(255,255,255,.18)"}`,background:inList?"rgba(249,115,22,.14)":"rgba(255,255,255,.05)",color:inList?ORANGE:"#cbd5e1",cursor:"pointer",fontFamily:"'DM Sans',sans-serif" }}>{inList?"Listed":"+ My List"}</button>}
@@ -734,9 +730,8 @@ function HeroSlider({ myList, onToggleList, onInfo, onPlay }: { myList:Set<numbe
         </div>
         <h1 style={{ fontFamily:"'Anton',sans-serif", fontSize:mobile?38:62, color:"white", lineHeight:0.95, marginBottom:14, letterSpacing:"0.01em" }}>{item.title}</h1>
         <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:12, fontSize:12, flexWrap:"wrap" }}>
-          <StarRating score={heroScore} />
           <span style={{ color:"#94a3b8" }}>{heroYear}</span>
-          <span style={{color:"#93c5fd",fontSize:11,fontWeight:700,padding:"3px 9px",borderRadius:999,background:"rgba(59,130,246,.14)",border:"1px solid rgba(59,130,246,.25)"}}>{item.vj || "VJ"}</span>
+          <span style={{color:"#dfeaff",fontSize:11,fontWeight:700,padding:"3px 9px",borderRadius:999,background:"rgba(30,64,175,0.72)",border:"1px solid rgba(96,165,250,0.35)",boxShadow:"inset 0 1px 0 rgba(255,255,255,0.08)"}}>{item.vj || "VJ"}</span>
         </div>
         <p style={{ color:"#cbd5e1", fontSize:mobile?12:14, lineHeight:1.6, marginBottom:mobile?16:24, maxWidth:mobile?"58%":560 }} className="clamp-2">{heroStory}</p>
         <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
@@ -827,7 +822,7 @@ function DetailModal({ item, myList, onToggleList, onClose, onPlay, onViewSeries
   const storyline = reelplexiMetadata?.overview || reelplexiMetadata?.description || item.description || "Storyline unavailable.";
   const genres = (reelplexiMetadata.genres || item.genres).filter((genre: string) => genre.toLowerCase() !== 'musical');
   const hasMoreStoryline = storyline.length > 220;
-  useEffect(()=>{ (async()=>{ try { const {data:{session}}=await supabase.auth.getSession(); if(session?.access_token){ const r=await fetch("/api/subscription/status",{headers:{Authorization:`Bearer ${session.access_token}`},cache:"no-store"}); if(r.ok){const d=await r.json();setAccess(d)} } } catch {} })() },[]);
+  useEffect(()=>{ (async()=>{ try { const {data:{session}}=await supabase.auth.getSession(); if(session?.access_token){ const r=await fetch("/api/subscription/status",{headers:{Authorization:`Bearer ${session.access_token}`,},cache:"no-store"}); if(r.ok){const d=await r.json();setAccess(d)} } } catch {} })() },[]);
   useEffect(()=>{
     const sourceId = item.sourceId;
     if(!sourceId) return;
@@ -856,10 +851,9 @@ function DetailModal({ item, myList, onToggleList, onClose, onPlay, onViewSeries
     try{
       const {data:{session}}=await supabase.auth.getSession();
       if(!session?.access_token) throw new Error("Please sign in first");
-      const params=new URLSearchParams({id:item.sourceId,type:item.type==="movie"?"movie":"episode"});
-      if(item.type==="series"){params.set("season","1");params.set("episode","1")}
+      const params=new URLSearchParams({id:item.sourceId,type:"movie"});
       if(item.title) params.set("title", item.title);
-      const r=await fetch(`/api/download?${params.toString()}`,{method:"POST",headers:{Authorization:`Bearer ${session.access_token}`}});
+      const r=await fetch(`/api/download?${params.toString()}`,{method:"POST",headers:{Authorization:`Bearer ${session.access_token}`} });
       const d=await r.json();
       if(!r.ok||!d.url) throw new Error(d.error||"Download unavailable");
       window.location.href=d.url;
@@ -868,9 +862,9 @@ function DetailModal({ item, myList, onToggleList, onClose, onPlay, onViewSeries
   };
   return <div onClick={onClose} style={{position:"fixed",inset:0,zIndex:65,background:"rgba(3,5,12,.88)",backdropFilter:"blur(16px)",display:"flex",alignItems:"center",justifyContent:"center",padding:mobile?8:24,boxSizing:"border-box"}}>
     <div onClick={e=>e.stopPropagation()} className="fade-up" style={{background:CARD,borderRadius:mobile?14:20,width:"100%",maxWidth:"min(740px, calc(100vw - 16px))",maxHeight:"calc(100dvh - 16px)",overflowY:"auto",border:"1px solid rgba(255,255,255,.06)",boxShadow:"0 48px 120px rgba(0,0,0,.85)",boxSizing:"border-box"}}>
-      <div style={{position:"relative",height:mobile?220:360}}><img src={item.heroImage||item.image||reelplexiMetadata?.backdrop_url||reelplexiMetadata?.poster_url} alt={item.title} style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:"20px 20px 0 0"}}/><div style={{position:"absolute",inset:0,background:"linear-gradient(to top,#161b2e 0%,transparent 55%)",borderRadius:"20px 20px 0 0"}}/><button onClick={onClose} style={{position:"absolute",top:12,right:12,width:36,height:36,borderRadius:"50%",background:"rgba(13,17,23,.75)",border:"1px solid rgba(255,255,255,.1)",color:"white",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}><X size={16}/></button><div style={{position:"absolute",bottom:18,left:mobile?16:28,right:mobile?16:28}}><div style={{display:"flex",gap:8,marginBottom:10}}><span style={{background:item.type==="series"?BLUE:ORANGE,color:"white",fontSize:9,fontWeight:800,padding:"4px 10px",borderRadius:6,boxShadow:`0 0 16px ${item.type==="series"?BLUE:ORANGE}`}}>{item.type==="series"?"SERIES":"MOVIE"}</span></div><h1 style={{fontFamily:"'Anton',sans-serif",fontSize:mobile?28:44,color:"white",lineHeight:.95,marginBottom:14}}>{item.title}</h1><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><PrimaryBtn onClick={()=>onPlay(item)} style={{fontSize:12,padding:"9px 18px"}}>▶ Play</PrimaryBtn><TrailerButton item={item} style={{background:"rgba(255,255,255,.08)",color:"white",border:"1px solid rgba(255,255,255,.16)",borderRadius:12,padding:"9px 14px",fontSize:12,fontWeight:700,display:"flex",alignItems:"center",gap:6}} />{item.type==="series"&&<GlassBtn onClick={()=>{onClose();onViewSeries(item)}} style={{fontSize:12,padding:"9px 16px"}}>All Episodes</GlassBtn>}<button onClick={()=>onToggleList(item.id)} style={{background:inList?"rgba(249,115,22,.14)":"rgba(255,255,255,.07)",color:inList?ORANGE:"white",border:`1px solid ${inList?ORANGE:"rgba(255,255,255,.13)"}`,borderRadius:12,padding:"9px 16px",fontSize:12,fontWeight:600,cursor:"pointer"}}>{inList?"Listed":"+ List"}</button></div></div></div>
-      <div style={{padding:mobile?"16px 16px 24px":"20px 28px 32px"}}><div style={{display:"flex",alignItems:"center",gap:12,marginBottom:14,fontSize:13,flexWrap:"wrap"}}><StarRating score={score}/>{ratingLoading&&<span style={{color:"#64748b",fontSize:10}}>updating rating...</span>}<span style={{color:"#94a3b8"}}>{Number(String(reelplexiMetadata?.release_date || item.year).slice(0,4)) || item.year}</span><span style={{color:ORANGE,fontWeight:600}}>VJ: {vjName}</span><RatingBadge r={reelplexiMetadata.rating || item.rating}/><span style={{color:"#94a3b8"}}>{item.type==="series"?`${item.seasons}S ${item.episodes||0}ep`:item.duration}</span></div><div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14}}>{genres.map((genre: string)=><span key={genre} style={{color:"#bfdbfe",background:"rgba(59,130,246,.14)",border:"1px solid rgba(96,165,250,.25)",borderRadius:999,padding:"4px 9px",fontSize:11}}>{genre}</span>)}</div><ExpandableStoryline text={storyline} mobile={mobile}/><div style={{display:"flex",gap:8,flexWrap:"wrap",padding:"14px 0 0"}}><button onClick={async()=>{setSharing(true);await share(item);setSharing(false)}} disabled={sharing} style={{background:"rgba(16,185,129,.08)",color:"#10b981",border:"1px solid rgba(16,185,129,.35)",borderRadius:12,padding:"9px 14px",fontSize:12,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}><Share2 size={14}/>{sharing?"Sharing...":"Share"}</button><button onClick={download} disabled={dl} style={{background:"rgba(59,130,246,.09)",color:BLUE,border:"1px solid rgba(59,130,246,.3)",borderRadius:12,padding:"9px 14px",fontSize:12,fontWeight:700,cursor:dl?"wait":"pointer",display:"flex",alignItems:"center",gap:6}}>{dl?"Starting...":"Download"}</button></div></div>
-      {downloadLocked && <PremiumPaywall item={item} action="download" onClose={()=>setDownloadLocked(false)} onUpgrade={()=>{setDownloadLocked(false); window.dispatchEvent(new Event("kilax-open-subscription"));}} />}
+      <div style={{position:"relative",height:mobile?220:360}}><img src={item.heroImage||item.image||reelplexiMetadata?.backdrop_url||reelplexiMetadata?.poster_url} alt={item.title} style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:"20px 20px 0 0"}}/><div style={{position:"absolute",inset:0,background:"linear-gradient(to top,#161b2e 0%,transparent 55%)",borderRadius:"20px 20px 0 0"}}/><button onClick={onClose} style={{position:"absolute",top:12,right:12,width:36,height:36,borderRadius:"50%",background:"rgba(13,17,23,.75)",border:"1px solid rgba(255,255,255,.1)",color:"white",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}><X size={16}/></button><div style={{position:"absolute",bottom:18,left:mobile?16:28,right:mobile?16:28}}><div style={{display:"flex",gap:8,marginBottom:10}}><span style={{background:item.type==="series"?BLUE:ORANGE,color:"white",fontSize:9,fontWeight:800,padding:"4px 10px",borderRadius:6,boxShadow:`0 0 16px ${item.type==="series"?BLUE:ORANGE}`}}>{item.type==="series"?"SERIES":"MOVIE"}</span></div><h1 style={{fontFamily:"'Anton',sans-serif",fontSize:mobile?28:44,color:"white",lineHeight:.95,marginBottom:14,textShadow:"2px 2px 0 #050709,-2px -2px 0 #050709,2px -2px 0 #050709,-2px 2px 0 #050709"}}>{item.title}</h1><div style={{display:"flex",gap:8,flexWrap:"wrap"}}>{item.type==="series"&&<PrimaryBtn onClick={()=>{onClose();onViewSeries(item)}} style={{fontSize:12,padding:"9px 16px",background:ORANGE,color:"white"}}>View Episodes</PrimaryBtn>}<PrimaryBtn onClick={()=>onPlay(item)} style={{fontSize:12,padding:"9px 18px"}}>▶ Play</PrimaryBtn><TrailerButton item={item} style={{background:"rgba(255,255,255,.08)",color:"white",border:"1px solid rgba(255,255,255,.16)",borderRadius:12,padding:"9px 14px",fontSize:12,fontWeight:700,display:"flex",alignItems:"center",gap:6}} /><button onClick={()=>onToggleList(item.id)} style={{background:inList?"rgba(249,115,22,.14)":"rgba(255,255,255,.07)",color:inList?ORANGE:"white",border:`1px solid ${inList?ORANGE:"rgba(255,255,255,.13)"}`,borderRadius:12,padding:"9px 16px",fontSize:12,fontWeight:600,cursor:"pointer"}}>{inList?"Listed":"+ List"}</button></div></div></div>
+      <div style={{padding:mobile?"16px 16px 24px":"20px 28px 32px"}}><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,marginBottom:14,fontSize:13,flexWrap:"wrap"}}><div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}><span style={{color:"#94a3b8"}}>{Number(String(reelplexiMetadata?.release_date || item.year).slice(0,4)) || item.year}</span><span style={{color:"#dfeaff",fontWeight:600,padding:"3px 9px",borderRadius:999,background:"rgba(30,64,175,0.72)",border:"1px solid rgba(96,165,250,.35)"}}>VJ: {vjName}</span><span style={{color:"#94a3b8"}}>{item.type==="series"?`${item.seasons}S ${item.episodes||0}ep`:item.duration}</span></div><div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}><button onClick={async()=>{setSharing(true);await share(item);setSharing(false)}} disabled={sharing} style={{background:"rgba(16,185,129,.08)",color:"#10b981",border:"1px solid rgba(16,185,129,.35)",borderRadius:12,padding:"9px 14px",fontSize:12,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}><Share2 size={14}/>{sharing?"Sharing...":"Share"}</button><button onClick={download} disabled={dl} style={{background:"rgba(59,130,246,.09)",color:BLUE,border:"1px solid rgba(59,130,246,.3)",borderRadius:12,padding:"9px 14px",fontSize:12,fontWeight:700,cursor:dl?"wait":"pointer",display:item.type==="movie"?"flex":"none",alignItems:"center",gap:6}}>{dl?"Starting...":"Download"}</button></div></div><div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14}}>{genres.map((genre: string)=><span key={genre} style={{color:"#bfdbfe",background:"rgba(59,130,246,.14)",border:"1px solid rgba(96,165,250,.25)",borderRadius:999,padding:"4px 9px",fontSize:11}}>{genre}</span>)}</div><ExpandableStoryline text={storyline} mobile={mobile}/></div>
+      {downloadLocked && item.type === "movie" && <PremiumPaywall item={item} action="download" onClose={()=>setDownloadLocked(false)} onUpgrade={()=>{setDownloadLocked(false); window.dispatchEvent(new Event("kilax-open-subscription"));}} />}
     </div>
   </div>;
 }
@@ -884,7 +878,6 @@ function Drawer({ open, onClose, page, setPage, isLoggedIn, user, onAuthOpen }: 
     { icon:Home,       label:"Home",          page:"home" },
     { icon:Film,       label:"Movies",        page:"movies" },
     { icon:Tv2,        label:"Series",        page:"series" },
-    { icon:Library,    label:"Playlists",     page:"playlist" },
     { icon:Heart,      label:"My List",       page:"mylist" },
     { icon:History,    label:"Watch History", page:"history" },
     { icon:Smartphone, label:"Get App",       page:"getapp" },
@@ -1231,66 +1224,6 @@ function GetAppPage() {
           ))}
         </div>
       </div>
-    </div>
-  );
-}
-
-// ─── ReelPlexi Playlists Page ────────────────────────────────────────────────
-function PlaylistsPage({ onOpen }: { onOpen:(m:MediaItem)=>void }) {
-  const { mobile } = useResponsive();
-  const [playlists, setPlaylists] = useState<any[]>([]);
-  const [selected, setSelected] = useState<any | null>(null);
-  const [loading, setLoading] = useState(true);
-  const px = mobile ? 16 : 48;
-
-  useEffect(() => {
-    fetch('/api/reelplexi/playlists', { cache: 'no-store' })
-      .then(response => response.json())
-      .then(payload => setPlaylists(Array.isArray(payload.playlists) ? payload.playlists : []))
-      .catch(() => setPlaylists([]))
-      .finally(() => setLoading(false));
-  }, []);
-
-  const openPlaylist = async (playlist: any) => {
-    setSelected(playlist);
-    if (!playlist?.id) return;
-    try {
-      const response = await fetch(`/api/reelplexi/playlists?id=${encodeURIComponent(String(playlist.id))}`, { cache: 'no-store' });
-      const payload = await response.json();
-      if (payload.playlist) setSelected(payload.playlist);
-    } catch { /* Keep the list response as a usable fallback. */ }
-  };
-
-  const rawItems = selected?.items || selected?.content || selected?.movies || selected?.series || [];
-  const items = Array.isArray(rawItems) ? rawItems.map((raw:any, index:number) => {
-    const type = raw.content_type === 'series' || raw.type === 'series' || raw.series_id ? 'series' : 'movie';
-    return mapReelplexiItem(raw.movie || raw.series || raw, type, index);
-  }) : [];
-
-  return (
-    <div style={{ paddingTop:`calc(${mobile?54:66}px + env(safe-area-inset-top,0px))`, paddingBottom:80, minHeight:'100%', background:BG }}>
-      <div style={{ padding:`28px ${px}px 22px`, borderBottom:'1px solid rgba(255,255,255,.06)' }}>
-        <p style={{ color:ORANGE, fontSize:11, fontWeight:800, letterSpacing:'.16em', textTransform:'uppercase', marginBottom:8 }}>Kilax Collections</p>
-        <h1 style={{ color:'white', fontFamily:"'Anton',sans-serif", fontSize:mobile?36:52, lineHeight:1, marginBottom:10 }}>Playlists</h1>
-        <p style={{ color:'#64748b', fontSize:14, maxWidth:600, lineHeight:1.7 }}>Browse hand-picked collections of movies and series from Kilax.</p>
-      </div>
-      {loading ? <LoadingBars label="Loading playlists" /> : playlists.length === 0 ? (
-        <div style={{ padding:`70px ${px}px`, textAlign:'center', color:'#64748b' }}><Library size={34} style={{ margin:'0 auto 14px', color:ORANGE }} /><p>No playlists are available yet.</p></div>
-      ) : (
-        <div style={{ display:'grid', gridTemplateColumns:mobile?'1fr':'repeat(auto-fit,minmax(240px,1fr))', gap:14, padding:`24px ${px}px` }}>
-          {playlists.map((playlist:any) => (
-            <button key={playlist.id} onClick={() => openPlaylist(playlist)} style={{ textAlign:'left', padding:20, minHeight:150, borderRadius:16, border:selected?.id===playlist.id?`1px solid ${ORANGE}`:'1px solid rgba(255,255,255,.08)', background:selected?.id===playlist.id?'rgba(249,115,22,.12)':CARD, color:'white', cursor:'pointer' }}>
-              <Library size={20} color={ORANGE} style={{ marginBottom:26 }} />
-              <h2 style={{ fontSize:18, marginBottom:6 }}>{playlist.name || playlist.title || 'Untitled playlist'}</h2>
-              <p style={{ color:'#64748b', fontSize:12, lineHeight:1.5 }}>{playlist.description || 'A ReelPlexi collection curated for Kilax viewers.'}</p>
-            </button>
-          ))}
-        </div>
-      )}
-      {selected && <div style={{ padding:`8px ${px}px 0` }}>
-        <h2 style={{ color:'white', fontSize:22, marginBottom:14 }}>{selected.name || selected.title || 'Playlist titles'}</h2>
-        {items.length === 0 ? <p style={{ color:'#64748b', fontSize:13 }}>This playlist has no published titles.</p> : <div className="responsive-card-grid">{items.map(item => <MediaCard key={`${item.type}-${item.id}`} item={item} myList={new Set()} onToggleList={()=>{}} onOpen={onOpen} listAction="button" />)}</div>}
-      </div>}
     </div>
   );
 }
@@ -1918,9 +1851,10 @@ function FloatingSupportBtn({ onClick }: { onClick:()=>void }) {
 }
 
 // ─── Home Page ────────────────────────────────────────────────────────────────
-function HomePage({ myList, onToggleList, onOpen, onPlay, watchHistory, onSeeMore }: { myList:Set<number>; onToggleList:(id:number)=>void; onOpen:(m:MediaItem)=>void; onPlay:(m:MediaItem)=>void; watchHistory:number[]; onSeeMore:(type:'movie'|'series', genre?:string, latest?:boolean)=>void }) {
+function HomePage({ myList, onToggleList, onOpen, onPlay, watchHistory, onSeeMore, loading }: { myList:Set<number>; onToggleList:(id:number)=>void; onOpen:(m:MediaItem)=>void; onPlay:(m:MediaItem)=>void; watchHistory:number[]; onSeeMore:(type:'movie'|'series', genre?:string, latest?:boolean)=>void; loading?:boolean }) {
   const { mobile } = useResponsive();
   const px = mobile?16:48;
+
   const movies = mediaCatalog.filter(m=>m.type === "movie");
   const series = mediaCatalog.filter(m=>m.type === "series");
 
@@ -1958,6 +1892,9 @@ function HomePage({ myList, onToggleList, onOpen, onPlay, watchHistory, onSeeMor
     {label:"More Series", icon:Tv2, ids:series.slice(12,24).map(m=>m.id),see:()=>onSeeMore("series")},
     {label:"More to Explore", icon:Compass, ids:mediaCatalog.slice(24,36).map(m=>m.id),see:()=>onSeeMore("movie")}
   ];
+  if (loading) {
+    return <div style={{ minHeight:"calc(100dvh - 72px)", display:"grid", placeItems:"center", padding:24, background:BG }}><LoadingBars label="Loading Kilax Movies" /></div>;
+  }
   return <>
     <HeroSlider myList={myList} onToggleList={onToggleList} onInfo={onOpen} onPlay={onPlay} />
     <div style={{marginTop:20,position:"relative",zIndex:10}}>{rows.map((r:any)=><MediaRow key={r.label} label={r.label} icon={r.icon} ids={r.ids || r.items.map((x:MediaItem)=>x.id)} myList={myList} onToggleList={onToggleList} onOpen={onOpen} onSeeMore={r.see}/>)}</div>
@@ -1989,6 +1926,8 @@ export default function App() {
   const [page,         setPage        ] = useState<Page>("home");
   const [catalogPreset, setCatalogPreset] = useState<{ type:'movie'|'series'; genre?:string; latest?:boolean }>({ type:'movie' });
 
+  const router = useRouter();
+
   const updatePage = useCallback((nextPage: Page) => {
     setPage(nextPage);
 
@@ -1996,25 +1935,20 @@ export default function App() {
 
     const routeMap: Record<Page, string> = {
       home: "/",
-      movies: "/movies",
-      series: "/series",
-      playlist: "/playlist",
-      subscription: "/subscription",
-      mylist: "/mylist",
-      profile: "/profile",
+      movies: "/?page=movies",
+      series: "/?page=series",
+      subscription: "/profile",
+      mylist: "/?page=mylist",
+      profile: "/?page=profile",
       history: "/history",
       getapp: "/get-app",
     };
 
     const nextPath = routeMap[nextPage] || "/";
-    const url = new URL(window.location.href);
-    url.pathname = nextPath;
-    const nextUrl = `${url.pathname}${url.search}`;
-
-    if (window.location.pathname !== nextPath || window.location.search !== url.search) {
-      window.history.pushState({}, "", nextUrl);
+    if (`${window.location.pathname}${window.location.search}` !== nextPath) {
+      router.push(nextPath);
     }
-  }, []);
+  }, [router]);
   const [modal,        setModal       ] = useState<MediaItem | null>(null);
   const [myList,       setMyList      ] = useState<Set<number>>(new Set());
   const [scrolled,     setScrolled    ] = useState(false);
@@ -2034,6 +1968,8 @@ export default function App() {
   const [freeAllowance, setFreeAllowance] = useState<any>(null);
   const [freeLimitReached, setFreeLimitReached] = useState(false);
   const [seriesDetail, setSeriesDetail] = useState<MediaItem | null>(null);
+  const [storageUserId, setStorageUserId] = useState<string | null>(null);
+  const [storageReady, setStorageReady] = useState(false);
   const [watchHistory, setWatchHistory] = useState<number[]>(() => {
     if (typeof window === "undefined") return [];
     try { return JSON.parse(localStorage.getItem("kilax-watch-history") || "[]"); } catch { return []; }
@@ -2050,10 +1986,19 @@ export default function App() {
 
     const syncPageFromUrl = () => {
       const pathname = window.location.pathname;
-      const nextPage = pathname === "/movies" ? "movies"
-        : pathname === "/series" ? "series"
-        : pathname === "/playlist" ? "playlist"
-        : pathname === "/subscription" ? "subscription"
+      const requestedPage = new URLSearchParams(window.location.search).get("page");
+      const seriesRouteMatch = pathname.match(/^\/series\/([^/]+)$/);
+      if (seriesRouteMatch) {
+        const requestedId = decodeURIComponent(seriesRouteMatch[1]);
+        const requestedSeries = mediaCatalog.find(item => item.type === "series" && (item.sourceId === requestedId || String(item.id) === requestedId));
+        if (requestedSeries) setSeriesDetail(requestedSeries);
+        setPage("home");
+        return;
+      }
+      setSeriesDetail(null);
+      const nextPage = requestedPage === "movies" || requestedPage === "series" || requestedPage === "mylist" || requestedPage === "profile" || requestedPage === "history" || requestedPage === "getapp" ? requestedPage
+        : pathname === "/movies" || pathname === "/series" ? "home"
+        : pathname === "/subscribe" || pathname === "/subscription" ? "profile"
         : pathname === "/mylist" ? "mylist"
         : pathname === "/profile" ? "profile"
         : pathname === "/history" ? "history"
@@ -2066,11 +2011,27 @@ export default function App() {
     syncPageFromUrl();
     window.addEventListener("popstate", syncPageFromUrl);
     return () => window.removeEventListener("popstate", syncPageFromUrl);
-  }, []);
+  }, [catalogReady]);
 
   useEffect(() => {
-    try { localStorage.setItem("kilax-watch-history", JSON.stringify(watchHistory)); } catch { /* storage is optional */ }
-  }, [watchHistory]);
+    if (typeof window === "undefined" || !storageUserId || !storageReady) return;
+    try {
+      localStorage.setItem(`kilax-watch-history:${storageUserId}`, JSON.stringify(watchHistory));
+      localStorage.setItem(`kilax-my-list:${storageUserId}`, JSON.stringify(Array.from(myList)));
+    } catch { /* storage is optional */ }
+  }, [storageUserId, storageReady, watchHistory, myList]);
+
+  useEffect(() => {
+    setStorageReady(false);
+    if (typeof window === "undefined" || !storageUserId) return;
+    try {
+      const savedHistory = JSON.parse(localStorage.getItem(`kilax-watch-history:${storageUserId}`) || localStorage.getItem("kilax-watch-history") || "[]");
+      const savedList = JSON.parse(localStorage.getItem(`kilax-my-list:${storageUserId}`) || "[]");
+      if (Array.isArray(savedHistory)) setWatchHistory(savedHistory.filter((id): id is number => Number.isFinite(Number(id))).map(Number));
+      if (Array.isArray(savedList)) setMyList(new Set(savedList.filter((id): id is number => Number.isFinite(Number(id))).map(Number)));
+      setStorageReady(true);
+    } catch { /* storage is optional */ }
+  }, [storageUserId]);
 
   // ── Referral redemption + device ID ─────────────────────────────────────────
   useEffect(()=>{
@@ -2114,8 +2075,8 @@ export default function App() {
 
   useEffect(()=>{
     let alive=true;
-    const sync=async()=>{ const {data:{user:authUser}}=await supabase.auth.getUser(); if(!alive) return; setLoggedIn(!!authUser); if(authUser){ const phone=authUser.user_metadata?.phone||""; setUser(u=>({...u,name:authUser.user_metadata?.full_name||u.name,email:authUser.email||u.email,phone:phone||u.phone})); if(!phone) setPhoneRequired(true); } };
-    sync(); const {data:{subscription}}=supabase.auth.onAuthStateChange(()=>sync()); return()=>{alive=false;subscription.unsubscribe()};
+    const sync=async()=>{ const {data:{user:authUser}}=await supabase.auth.getUser(); if(!alive) return; setStorageUserId(authUser?.id || null); setLoggedIn(!!authUser); if(authUser){ const phone=authUser.user_metadata?.phone||""; setUser(u=>({...u,name:authUser.user_metadata?.full_name||u.name,email:authUser.email||u.email,phone:phone||u.phone})); if(!phone) setPhoneRequired(true); } };
+    sync(); const {data:{subscription}}=supabase.auth.onAuthStateChange((_, authSession)=>{ setStorageUserId(authSession?.user?.id || null); sync(); }); return()=>{alive=false;subscription.unsubscribe()};
   },[]);
 
 
@@ -2207,15 +2168,34 @@ export default function App() {
 
   const handleAuthSuccess = (u:UserProfile) => { setUser(u); setLoggedIn(true); setAuthModal(null); setPhoneRequired(!u.phone); refreshSubscription(); };
 
-  const handleSignOut = () => {
-    setLoggedIn(false); setMyList(new Set()); updatePage("home");
+  const handleSignOut = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user?.id) {
+        localStorage.setItem(`kilax-watch-history:${session.user.id}`, JSON.stringify(watchHistory));
+        localStorage.setItem(`kilax-my-list:${session.user.id}`, JSON.stringify(Array.from(myList)));
+      }
+    } catch { /* storage is optional */ }
+    await signOut();
+    setLoggedIn(false); setStorageUserId(null); setStorageReady(false); updatePage("home");
     setUser({ name:"Kilax Viewer", email:"viewer@kilaxmovies.com", phone:"+256 780 846 800", joinDate:new Date().toLocaleDateString("en-US",{year:"numeric",month:"long",day:"numeric"}), avatar:DEFAULT_AVATAR.emoji, avatarBg:DEFAULT_AVATAR.bg });
   };
 
-  const handleViewSeries = (item:MediaItem) => { setModal(null); setSeriesDetail(item); };
+  const handleViewSeries = (item:MediaItem) => {
+    setModal(null);
+    setSeriesDetail(item);
+    const seriesId = encodeURIComponent(item.sourceId || String(item.id));
+    window.history.pushState({}, "", `/series/${seriesId}`);
+  };
+  const closeSeriesDetail = () => {
+    setSeriesDetail(null);
+    if (window.location.pathname.startsWith("/series/")) {
+      window.history.pushState({}, "", "/");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    }
+  };
   useEffect(()=>{ const f=()=>setSearchOpen(true); const sub=()=>updatePage("subscription"); window.addEventListener("kilax-open-search",f); window.addEventListener("kilax-open-subscription",sub); return()=>{window.removeEventListener("kilax-open-search",f);window.removeEventListener("kilax-open-subscription",sub)}}, [updatePage]);
 
-  if (!catalogReady) return <div style={{ minHeight:"100vh", background:BG, color:"white", display:"grid", placeItems:"center", fontFamily:"'DM Sans',sans-serif" }}><LoadingBars label="Loading Kilax Movies" /></div>;
   if (catalogError) return <div style={{ minHeight:"100vh", background:BG, color:"white", display:"grid", placeItems:"center", padding:24, textAlign:"center", fontFamily:"'DM Sans',sans-serif" }}><div><h1 style={{fontSize:22,marginBottom:10}}>Kilax Movies</h1><p style={{color:"#94a3b8",maxWidth:520}}>{catalogError}</p></div></div>;
 
   return (
@@ -2235,6 +2215,7 @@ export default function App() {
             setVideoWatch(null);
             if (videoWatch.item.type === "series") {
               setSeriesDetail(videoWatch.item);
+              window.history.pushState({}, "", `/series/${encodeURIComponent(videoWatch.item.sourceId || String(videoWatch.item.id))}`);
             } else {
               setModal(videoWatch.item);
             }
@@ -2248,7 +2229,7 @@ export default function App() {
       {seriesDetail && (
         <SeriesDetailPage
           series={seriesDetail}
-          onClose={()=>setSeriesDetail(null)}
+          onClose={closeSeriesDetail}
           onWatch={epIdx=>handlePlay(seriesDetail, epIdx)}
         />
       )}
@@ -2271,10 +2252,9 @@ export default function App() {
 
       <div style={{ height:"100%", overflowY:"auto" }}
         onScroll={e=>{ setScrolled(e.currentTarget.scrollTop>60); setNotifOpen(false); }}>
-        {page==="home"         && <HomePage         myList={myList} onToggleList={toggleList} onOpen={m=>setModal(m)} onPlay={handlePlay} watchHistory={watchHistory} onSeeMore={openCatalogPreset} />}
+        {page==="home"         && <HomePage         myList={myList} onToggleList={toggleList} onOpen={m=>setModal(m)} onPlay={handlePlay} watchHistory={watchHistory} onSeeMore={openCatalogPreset} loading={!catalogReady} />}
         {page==="movies"       && <CatalogPage      type="movie" title={catalogPreset.latest ? "Latest Movies" : catalogPreset.genre ? `${catalogPreset.genre} Movies` : "Movies"} accentColor={BLUE} myList={myList} onToggleList={toggleList} onOpen={m=>setModal(m)} initialGenre={catalogPreset.genre || "All"} initialFilter={catalogPreset.latest ? "latest" : "all"} />}
         {page==="series"       && <CatalogPage      type="series" title={catalogPreset.latest ? "Latest Series" : catalogPreset.genre ? `${catalogPreset.genre} Series` : "Series"} accentColor={ORANGE} myList={myList} onToggleList={toggleList} onOpen={m=>setModal(m)} initialGenre={catalogPreset.genre || "All"} initialFilter={catalogPreset.latest ? "latest" : "all"} />}
-        {page==="playlist"     && <PlaylistsPage     onOpen={m=>setModal(m)} />}
         {page==="subscription" && <SubscriptionPage onSuccess={()=>{setIsPremium(true);refreshSubscription();updatePage("profile");}} />}
         {page==="mylist"       && <MyListPage       myList={myList} onToggleList={toggleList} onOpen={m=>setModal(m)} />}
         {page==="profile"      && <ProfilePage      user={user} setUser={setUser} isPremium={isPremium} subscriptionPlan={subscriptionPlan} myListCount={myList.size} setPage={updatePage} onSignOut={handleSignOut} />}

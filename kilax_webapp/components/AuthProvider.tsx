@@ -10,7 +10,7 @@ interface AuthContextType {
   loading: boolean
   isPremium: boolean
   signIn: (email: string, password: string) => Promise<{ error: Error | null; legacyPasswordResetRequired?: boolean }>
-  signUp: (email: string, password: string, phone?: string) => Promise<{ error: Error | null }>
+  signUp: (email: string, password: string, phone?: string, avatarUrl?: string) => Promise<{ error: Error | null }>
   signInWithGoogle: () => Promise<{ error: Error | null }>
   signOut: () => Promise<void>
   resetPassword: (email: string) => Promise<{ error: Error | null }>
@@ -154,14 +154,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error }
   }
 
-  const signUp = async (email: string, password: string, phone?: string) => {
+  const signUp = async (email: string, password: string, phone?: string, avatarUrl?: string) => {
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         // Store phone in metadata so the handle_new_user trigger copies it
         // to profiles.phone on insert. full_name can be set later on profile edit.
-        data: phone ? { phone } : undefined,
+        data: phone || avatarUrl ? { ...(phone ? { phone } : {}), ...(avatarUrl ? { avatar_url: avatarUrl } : {}) } : undefined,
       },
     })
     return { error }

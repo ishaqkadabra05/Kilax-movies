@@ -58,6 +58,41 @@ export function getRedirectCookie(): string | null {
   }
 }
 
+export function isDirectMediaSource(url: string): boolean {
+  if (!url || url === '#') {
+    return false
+  }
+
+  const trimmed = url.trim()
+
+  // Already proxied or is an iframe embed URL.
+  if (trimmed.startsWith('/api/stream') || trimmed.includes('embed.reelplexi.com')) {
+    return true
+  }
+
+  // Forces direct playback for signed/pre-signed URLs and CDN media sources.
+  const hasSignedQuery = /(?:[?&](?:X-Amz-|X-Goog-|token=|Signature=|sig=|key=|Expires=|AWSAccessKeyId=)|(?:X-Amz-|X-Goog-))/i.test(trimmed)
+  if (hasSignedQuery) {
+    return true
+  }
+
+  try {
+    const absoluteUrl = trimmed.startsWith('http://') || trimmed.startsWith('https://')
+      ? trimmed
+      : `https://${trimmed}`
+
+    const parsed = new URL(absoluteUrl)
+    const hostname = parsed.hostname.toLowerCase()
+    const pathname = parsed.pathname.toLowerCase()
+    const isCloudPresignHost = /(wasabisys\.com|amazonaws\.com|cloudfront\.net|googleapis\.com|storage\.googleapis\.com|fastly\.net|azureedge\.net|b-cdn\.net)/i.test(hostname)
+    const isStreamAsset = /\.(m3u8|mpd|mp4|m4v|webm|mov|m4s|ts|flv)(?:$|\?)/i.test(pathname) || /\/manifest|\/playlist/i.test(pathname)
+
+    return isCloudPresignHost && isStreamAsset
+  } catch {
+    return false
+  }
+}
+
 // Video URL processing functions - proxy through API to handle CORS
 export function normalizeVideoUrl(url: string): string {
   if (!url || url === "#") {
@@ -66,10 +101,7 @@ export function normalizeVideoUrl(url: string): string {
 
   // Signed cloud URLs (Wasabi/S3/pre-signed) should be played directly.
   // The proxy often rejects these URLs with 403 even though the signed URL itself is valid.
-  const isSignedMediaUrl = /(?:[?&](?:X-Amz-|token=|Signature=|sig=|key=)|(?:X-Amz-|X-Goog-))/i.test(url)
-
-  // Already proxied or is an iframe embed URL
-  if (url.startsWith('/api/stream') || url.includes('embed.reelplexi.com') || isSignedMediaUrl) {
+  if (isDirectMediaSource(url)) {
     return url
   }
 

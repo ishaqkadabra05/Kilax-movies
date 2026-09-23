@@ -4,7 +4,6 @@ export type Page =
   | 'home'
   | 'movies'
   | 'series'
-  | 'playlist'
   | 'subscription'
   | 'mylist'
   | 'profile'
@@ -26,6 +25,7 @@ export interface UserProfile {
 export interface AppNotification {
   id: string
   icon?: string | null
+  thumbnail?: string | null
   title: string
   body: string
   url?: string | null

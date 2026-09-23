@@ -28,20 +28,21 @@ export default function HeroDetail({ title, subtitle, description, score = 0, ye
   const image = coverImage;
 
   return (
-    <section className="relative w-full min-h-[430px] flex flex-col lg:flex-row items-stretch bg-gray-900">
+    <section className="relative w-full min-h-107.5 flex flex-col lg:flex-row items-stretch bg-gray-900">
       <div className="absolute inset-0 z-0">
         <Image src={image} alt={title} fill className="object-cover object-center opacity-60" priority />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/65 to-transparent" />
+        <div className="absolute inset-0 bg-linear-to-r from-black/85 via-black/65 to-transparent" />
       </div>
 
       <div className="relative z-10 flex-1 flex flex-col justify-end lg:justify-center px-5 py-10 sm:px-8 lg:py-16 lg:pl-16 lg:pr-8 text-white">
         <div className="max-w-3xl">
           {subtitle && <h2 className="text-orange-400 text-xs font-semibold uppercase mb-2 tracking-wide">{subtitle}</h2>}
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4 leading-tight" style={{ color: primaryColor }}>{title}</h1>
-          <div className="flex items-center gap-3 text-xs sm:text-sm mb-4 flex-wrap">
-            {score > 0 && <span className="inline-flex items-center gap-1 text-amber-300 font-bold"><Star size={14} fill="currentColor" />{score.toFixed(1)} Reelplexi</span>}
+          <div className="mb-4 flex flex-wrap items-center gap-3 text-xs sm:text-sm">
             {displayYear && <span className="rounded bg-gray-800/80 px-2.5 py-1 font-semibold">{displayYear}</span>}
-            {vj && <span className="rounded bg-gray-800/80 px-2.5 py-1 font-semibold">VJ: {vj}</span>}
+            {vj && <span className="rounded bg-[#1e293b] px-2.5 py-1 font-semibold text-slate-100 shadow-inner shadow-black/30">VJ: {vj}</span>}
+          </div>
+          <div className="mb-4 flex flex-wrap items-center gap-2 text-xs sm:text-sm">
             {displayGenres.map(g => <span key={g} className="rounded bg-gray-800/80 px-2.5 py-1 font-semibold">{g}</span>)}
           </div>
           <p className="text-sm sm:text-base lg:text-lg text-gray-200 mb-6 max-w-2xl leading-relaxed line-clamp-4">{story}</p>

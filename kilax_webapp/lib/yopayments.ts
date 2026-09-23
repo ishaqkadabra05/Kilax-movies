@@ -377,14 +377,19 @@ export class YoPaymentsService {
         const now = new Date();
         const expiryDate = new Date(now.getTime() + subscriptionDuration * 24 * 60 * 60 * 1000);
 
-        // Insert subscription record with only existing columns
+        // Insert subscription record with the active paid flags used throughout the app
         const { error: subscriptionError } = await paymentDb
           .from('subscriptions')
           .insert({
             user_id: userId,
             plan: subscriptionPlan,
+            plan_id: null,
+            subscription_type: 'paid',
+            status: 'active',
+            start_date: now.toISOString(),
+            expiry_date: expiryDate.toISOString(),
             payment_method: 'yopayments_mobile_money',
-            subscribed_at: now,
+            subscribed_at: now.toISOString(),
           });
 
         if (subscriptionError) {
@@ -399,6 +404,8 @@ export class YoPaymentsService {
             subscription: subscriptionPlan,
             subscription_start_date: now.toISOString(),
             subscription_expiry_date: expiryDate.toISOString(),
+            trial_status: 'converted',
+            trial_expires_at: null,
           })
           .eq('id', userId);
 

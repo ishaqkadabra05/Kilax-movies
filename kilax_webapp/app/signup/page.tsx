@@ -19,6 +19,8 @@ import RecaptchaGuard, {
   annotateAssessment,
 } from '@/components/RecaptchaGuard';
 import PasswordInput from '@/components/PasswordInput';
+import { AVATARS } from '@/lib/ui-config';
+import { randomDicebearAvatar } from '@/lib/avatar';
 
 /* ══════════════════════════════════════════════════════════════ */
 function SignUpContent() {
@@ -29,6 +31,7 @@ function SignUpContent() {
   const [phone,           setPhone]           = useState('');
   const [loading,         setLoading]         = useState(false);
   const [error,           setError]           = useState('');
+  const [avatarIndex,     setAvatarIndex]     = useState(0);
 
   const router       = useRouter();
   const searchParams = useSearchParams();
@@ -108,6 +111,7 @@ function SignUpContent() {
       email.trim().toLowerCase(),
       password,
       normalizedPhone,
+      randomDicebearAvatar(),
     );
 
     // 4. Annotate the assessment
@@ -139,6 +143,17 @@ function SignUpContent() {
             <img src="/logo.png" alt="Kilax Movies Logo" width={48} height={48}
               className="w-12 h-12 object-contain rounded mb-1" />
             <p className="text-gray-400 text-sm">Create your account</p>
+          </div>
+
+          <div className="mb-5">
+            <p className="mb-3 text-center text-xs font-bold uppercase tracking-wider text-gray-400">Choose your avatar</p>
+            <div className="flex justify-center gap-3">
+              {AVATARS.map((avatar, index) => (
+                <button key={avatar.emoji} type="button" onClick={() => setAvatarIndex(index)} aria-label={`Choose avatar ${index + 1}`} className="rounded-full p-0.5 transition-transform hover:scale-110" style={{ outline: avatarIndex === index ? '2px solid #f97316' : '2px solid transparent', outlineOffset: 3 }}>
+                  <img src={avatar.emoji} alt="" className="h-10 w-10 rounded-full bg-gray-900" />
+                </button>
+              ))}
+            </div>
           </div>
 
           <h2 className="text-lg font-semibold text-white text-center mb-4">Sign Up</h2>

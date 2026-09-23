@@ -32,24 +32,32 @@ export async function userHasActivePaidSubscription(userId: string): Promise<boo
     if (!profileError && profile) {
       const planName = String(profile.subscription || '').trim().toLowerCase()
       const expiry = profile.subscription_expiry_date ? new Date(profile.subscription_expiry_date).getTime() : 0
-      const hasLiveProfilePlan = Boolean(planName) && planName !== 'free' && planName !== 'trial' && expiry > now
-      if (hasLiveProfilePlan) return true
+      const isPaidProfile = Boolean(planName) && !['free', 'trial', 'none', ''].includes(planName) && expiry > now
+      if (isPaidProfile) return true
     }
 
     const { data: subscriptions, error: subscriptionsError } = await subscriptionDb
       .from('subscriptions')
-      .select('status, subscription_type, expiry_date')
+      .select('status, subscription_type, expiry_date, plan, plan_id, start_date, subscribed_at, created_at')
       .eq('user_id', userId)
 
     if (subscriptionsError) {
-      console.error('Error fetching active subscriptions:', subscriptionsError)
       return false
     }
 
     return (subscriptions || []).some((row: any) => {
+      const status = String(row?.status || '').trim().toLowerCase()
+      const type = String(row?.subscription_type || row?.plan || row?.plan_id || '').trim().toLowerCase()
       const expiry = row?.expiry_date ? new Date(row.expiry_date).getTime() : 0
-      const isPaid = row?.subscription_type === 'paid' || row?.status === 'active'
-      return Boolean(isPaid && expiry > now)
+      const fallbackExpiry = row?.start_date || row?.subscribed_at || row?.created_at
+        ? new Date(row.start_date || row.subscribed_at || row.created_at).getTime() + (30 * 24 * 60 * 60 * 1000)
+        : 0
+      const validExpiry = expiry > now || (fallbackExpiry > now && !['free', 'trial'].includes(type))
+      const activeStatus = ['active', 'paid', 'completed', 'success', 'successful', 'approved', 'processing'].includes(status)
+      const paidType = Boolean(type) && !['free', 'trial', 'none', ''].includes(type) && !type.includes('free') && !type.includes('trial')
+      const legacyPlan = Boolean(row?.plan) && !['free', 'trial', 'none', ''].includes(String(row.plan).trim().toLowerCase())
+
+      return validExpiry && (activeStatus || paidType || legacyPlan)
     })
   } catch (error) {
     console.error('Error checking active paid subscription:', error)
@@ -127,16 +135,18 @@ export async function hasActiveSubscription(userId: string): Promise<boolean> {
       .eq('id', userId)
       .single()
 
+    if (profile && profile.subscription && profile.subscription.toLowerCase() !== 'free' && profile.subscription_expiry_date && new Date(profile.subscription_expiry_date) > new Date()) {
+      return true
+    }
+
+    const activePaid = await userHasActivePaidSubscription(userId)
+    if (activePaid) return true
+
     if (error || !profile) {
       return false
     }
 
-    // Check if subscription exists and is not expired
-    const hasSubscription = profile.subscription && profile.subscription !== 'free'
-    const isNotExpired = profile.subscription_expiry_date && 
-                        new Date(profile.subscription_expiry_date) > new Date()
-    
-    return hasSubscription && isNotExpired
+    return false
   } catch (error) {
     console.error('Error checking active subscription:', error)
     return false
@@ -159,6 +169,41 @@ export async function getUserSubscriptionStatus(userId: string): Promise<{
       .eq('id', userId)
       .single()
 
+    const fallbackPaid = await userHasActivePaidSubscription(userId)
+
+    if (profile && profile.subscription && profile.subscription.toLowerCase() !== 'free' && profile.subscription_expiry_date) {
+      const expiryDate = new Date(profile.subscription_expiry_date)
+      const now = new Date()
+      const isNotExpired = expiryDate > now
+      return {
+        hasSubscription: true,
+        isActive: isNotExpired || fallbackPaid,
+        isExpired: !isNotExpired && !fallbackPaid,
+        subscription: profile.subscription,
+        expiryDate: profile.subscription_expiry_date,
+        daysRemaining: isNotExpired ? Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : undefined
+      }
+    }
+
+    if (fallbackPaid) {
+      const { data: row } = await subscriptionDb
+        .from('subscriptions')
+        .select('subscription_type, plan, expiry_date')
+        .eq('user_id', userId)
+        .order('expiry_date', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      const expiryDate = row?.expiry_date ? new Date(row.expiry_date) : null
+      return {
+        hasSubscription: true,
+        isActive: Boolean(expiryDate && expiryDate > new Date()),
+        isExpired: Boolean(expiryDate && expiryDate <= new Date()),
+        subscription: String(row?.plan || row?.subscription_type || 'paid'),
+        expiryDate: row?.expiry_date || undefined,
+      }
+    }
+
     if (error || !profile) {
       return {
         hasSubscription: false,
@@ -167,20 +212,10 @@ export async function getUserSubscriptionStatus(userId: string): Promise<{
       }
     }
 
-    const hasSubscription = profile.subscription && profile.subscription !== 'free'
-    const expiryDate = profile.subscription_expiry_date ? new Date(profile.subscription_expiry_date) : null
-    const now = new Date()
-    const isNotExpired = expiryDate && expiryDate > now
-    const isExpired = expiryDate && expiryDate <= now
-    const daysRemaining = expiryDate ? Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : undefined
-
     return {
-      hasSubscription,
-      isActive: hasSubscription && isNotExpired,
-      isExpired: hasSubscription && isExpired,
-      subscription: profile.subscription,
-      expiryDate: profile.subscription_expiry_date,
-      daysRemaining: daysRemaining && daysRemaining > 0 ? daysRemaining : undefined
+      hasSubscription: false,
+      isActive: false,
+      isExpired: false
     }
   } catch (error) {
     console.error('Error getting subscription status:', error)

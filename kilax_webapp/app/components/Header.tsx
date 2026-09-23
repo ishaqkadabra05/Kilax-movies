@@ -8,6 +8,7 @@ import { signOut } from "@/lib/auth";
 import { setRedirectCookie } from "@/lib/utils";
 import { useTheme } from "@/components/ThemeProvider";
 import PremiumUpgradeModal from "@/components/PremiumUpgradeModal";
+import { dicebearAvatar } from "@/lib/avatar";
 import {
   Search,
   Home,
@@ -30,8 +31,6 @@ import {
 
 /* ── nav items ──────────────────────────────────────────────── */
 const leftNavItems = [
-  { href: "/movies",         label: "Movies",         icon: Film  },
-  { href: "/series",         label: "Series",         icon: Tv2   },
   { href: "/non-translated", label: "Non Translated", icon: Globe },
 ];
 
@@ -47,17 +46,14 @@ function Avatar({
   user, isPremium, size = 40,
 }: { user: any; isPremium: boolean; size?: number }) {
   const s = `w-${size === 32 ? 8 : 10} h-${size === 32 ? 8 : 10}`;
-  return user.user_metadata?.avatar_url ? (
+  const avatarUrl = user.user_metadata?.avatar_url || dicebearAvatar(user.id || user.email || "kilax-user");
+  return (
     <Image
-      src={user.user_metadata.avatar_url}
+      src={avatarUrl}
       alt="Profile"
       width={size} height={size}
       className={`${s} rounded-full border-2 ${isPremium ? "border-orange-400" : "border-orange-500"}`}
     />
-  ) : (
-    <div className={`${s} rounded-full flex items-center justify-center text-white font-bold ${isPremium ? "bg-orange-400" : "bg-orange-500"}`}>
-      {user.email?.charAt(0).toUpperCase()}
-    </div>
   );
 }
 

@@ -215,6 +215,11 @@ export class MakyPayService {
     const { error: subscriptionError } = await paymentDb.from('subscriptions').insert({
       user_id: userId,
       plan: subscriptionPlan,
+      plan_id: null,
+      subscription_type: 'paid',
+      status: 'active',
+      start_date: now.toISOString(),
+      expiry_date: expiryDate.toISOString(),
       payment_method: 'makypay_mobile_money',
       subscribed_at: now.toISOString(),
     });
@@ -226,6 +231,8 @@ export class MakyPayService {
         subscription: subscriptionPlan,
         subscription_start_date: now.toISOString(),
         subscription_expiry_date: expiryDate.toISOString(),
+        trial_status: 'converted',
+        trial_expires_at: null,
       })
       .eq('id', userId);
     if (profileError) console.error('Profile update error:', profileError);

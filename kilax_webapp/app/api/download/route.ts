@@ -184,7 +184,7 @@ export async function POST(req: NextRequest) {
         .gte('created_at', since)
       if (error) throw error
       if ((count || 0) >= 1) {
-        return NextResponse.json({ error: 'Your trial allows 1 download every 24 hours. Subscribe to Premium for more downloads.', code: 'TRIAL_DOWNLOAD_LIMIT', limitReached: true, subscribeUrl: '/subscribe' }, { status: 429 })
+        return NextResponse.json({ error: 'Your trial allows 1 download every 24 hours. Upgrade via your profile to continue downloading.', code: 'TRIAL_DOWNLOAD_LIMIT', limitReached: true, subscribeUrl: '/profile' }, { status: 429 })
       }
     }
     return resolveDownload(req, auth.userId, auth.plan)

@@ -36,22 +36,77 @@ export async function GET(req: NextRequest) {
   }
 
   // ── Score: use every Reelplexi field that might carry a numeric rating ─────
-  // Reelplexi returns `popularity` (0–1000+), `vote_average` (0–10),
-  // `imdb_rating`, `imdb_score`, `score`, or `rating` (numeric).
+  // Reelplexi can return numeric values or numeric strings such as "8.7" or "8.7/10".
+  const parseScoreValue = (value: any): number | null => {
+    if (value === null || value === undefined || value === '') return null
+
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      if (value > 0 && value <= 10) return Number(value.toFixed(1))
+      if (value > 10 && value <= 100) return Number((value / 10).toFixed(1))
+      return null
+    }
+
+    if (typeof value === 'string') {
+      const trimmed = value.trim()
+      if (!trimmed || trimmed.toLowerCase() === 'n/a' || trimmed.toLowerCase() === 'nr') return null
+
+      const normalized = trimmed.replace(/\s+/g, '')
+      const isRatingLikeString = /^\d+(?:\.\d+)?(?:\/10|\/100|%)?$/.test(normalized)
+      if (!isRatingLikeString) return null
+
+      const numeric = Number(normalized.replace(/%$/, '').replace(/\/10$/, '').replace(/\/100$/, ''))
+      if (!Number.isFinite(numeric) || numeric <= 0) return null
+
+      if (numeric <= 10) return Number(numeric.toFixed(1))
+      if (numeric <= 100) return Number((numeric / 10).toFixed(1))
+      return null
+    }
+
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        const parsed = parseScoreValue(item)
+        if (parsed !== null) return parsed
+      }
+      return null
+    }
+
+    if (typeof value === 'object') {
+      const nestedKeys = ['value', 'score', 'rating', 'average', 'avg', 'imdb', 'tmdb']
+      for (const key of nestedKeys) {
+        const parsed = parseScoreValue((value as Record<string, any>)[key])
+        if (parsed !== null) return parsed
+      }
+
+      for (const item of Object.values(value as Record<string, any>)) {
+        const parsed = parseScoreValue(item)
+        if (parsed !== null) return parsed
+      }
+    }
+
+    return null
+  }
+
   const scoreCandidates = [
     raw.vote_average,
     raw.imdb_rating,
     raw.imdb_score,
     raw.score,
-    // popularity is on a 0–1000 scale — normalise to 0–10
-    raw.popularity != null ? parseFloat((Number(raw.popularity) / 100).toFixed(1)) : null,
-    // raw.rating may be numeric (e.g. 7.5) or a string classification ("PG-13")
+    raw.average_rating,
+    raw.audience_score,
+    raw.critics_score,
+    raw.ratings?.imdb,
+    raw.ratings?.tmdb,
+    raw.ratings?.average,
+    raw.ratings?.score,
+    raw.ratings?.value,
+    raw.popularity != null ? raw.popularity : null,
     typeof raw.rating === 'number' ? raw.rating : null,
+    typeof raw.rating === 'string' ? raw.rating : null,
   ]
 
   let score = scoreCandidates
-    .map(v => Number(v))
-    .find(v => Number.isFinite(v) && v > 0 && v <= 10) ?? 0
+    .map(parseScoreValue)
+    .find((v): v is number => v !== null) ?? 0
 
   // If still 0 and popularity is available, use capped popularity/10
   if (score === 0 && raw.popularity) {

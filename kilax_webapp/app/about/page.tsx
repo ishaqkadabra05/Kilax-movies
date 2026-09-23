@@ -115,8 +115,8 @@ export default function AboutPage() {
           never miss our latest reviews and insights.
         </p>
         <div className="flex flex-wrap justify-center gap-4">
-          <a href="/subscribe" className="px-6 py-3 rounded bg-orange-500 hover:bg-orange-600 text-white font-semibold text-lg transition">
-            Subscribe Now
+          <a href="/profile" className="px-6 py-3 rounded bg-orange-500 hover:bg-orange-600 text-white font-semibold text-lg transition">
+            View profile
           </a>
           <a href="/contact" className="px-6 py-3 rounded border border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white font-semibold text-lg transition">
             Get in Touch

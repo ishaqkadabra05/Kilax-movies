@@ -1,11 +1,59 @@
 import type { MediaItem, MediaType } from '@/lib/types/media'
 
+function parseScoreValue(value: any): number | null {
+  if (value === null || value === undefined || value === '') return null
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    if (value > 0 && value <= 10) return Number(value.toFixed(1))
+    if (value > 10 && value <= 100) return Number((value / 10).toFixed(1))
+    return null
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (!trimmed || trimmed.toLowerCase() === 'n/a' || trimmed.toLowerCase() === 'nr') return null
+
+    const normalized = trimmed.replace(/\s+/g, '')
+    const isRatingLikeString = /^\d+(?:\.\d+)?(?:\/10|\/100|%)?$/.test(normalized)
+    if (!isRatingLikeString) return null
+
+    const numeric = Number(normalized.replace(/%$/, '').replace(/\/10$/, '').replace(/\/100$/, ''))
+    if (!Number.isFinite(numeric) || numeric <= 0) return null
+
+    if (numeric <= 10) return Number(numeric.toFixed(1))
+    if (numeric <= 100) return Number((numeric / 10).toFixed(1))
+    return null
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const parsed = parseScoreValue(item)
+      if (parsed !== null) return parsed
+    }
+    return null
+  }
+
+  if (typeof value === 'object') {
+    const nestedKeys = ['value', 'score', 'rating', 'average', 'avg', 'imdb', 'tmdb', 'votes']
+    for (const key of nestedKeys) {
+      const parsed = parseScoreValue((value as Record<string, any>)[key])
+      if (parsed !== null) return parsed
+    }
+
+    for (const item of Object.values(value as Record<string, any>)) {
+      const parsed = parseScoreValue(item)
+      if (parsed !== null) return parsed
+    }
+  }
+
+  return null
+}
+
 /**
  * Maps a raw Reelplexi API item into the app's MediaItem shape.
  *
- * Score is NOT read from Reelplexi (they don't store one).
- * It comes from TMDB via the catalog enrichment step using tmdb_id.
- * The normalizer preserves whatever score was set by enrichItems().
+ * Score is preserved from Reelplexi when available, even if it arrives as a
+ * numeric string or nested rating object like { ratings: { imdb: '8.7' } }.
  */
 export function mapMediaItem(raw: any, type: MediaType, index: number): MediaItem {
   // ── Stable numeric ID from Reelplexi string ID ──────────────────────────────
@@ -23,13 +71,26 @@ export function mapMediaItem(raw: any, type: MediaType, index: number): MediaIte
   )
 
   // ── Score ─────────────────────────────────────────────────────────────────
-  // The catalog enrichment step sets raw.score from TMDB vote_average.
-  // Accept whatever value was placed here; do not attempt to re-derive it
-  // from content-classification strings like "PG-13".
-  const scoreRaw = Number(raw.score ?? 0)
-  const score = Number.isFinite(scoreRaw) && scoreRaw > 0
-    ? parseFloat(scoreRaw.toFixed(1))
-    : 0
+  // Accept real Reelplexi numbers and numeric strings such as "8.7", "8.7/10",
+  // "87%", and nested rating objects instead of falling back to zero.
+  const scoreCandidates = [
+    raw.score,
+    raw.vote_average,
+    raw.imdb_rating,
+    raw.imdb_score,
+    raw.average_rating,
+    raw.audience_score,
+    raw.critics_score,
+    raw.rating,
+    raw.ratings?.imdb,
+    raw.ratings?.tmdb,
+    raw.ratings?.average,
+    raw.ratings?.score,
+    raw.ratings?.value,
+  ]
+  const score = scoreCandidates
+    .map(parseScoreValue)
+    .find((value): value is number => value !== null) ?? 0
 
   // ── Duration ─────────────────────────────────────────────────────────────
   const durationMins = Number(raw.duration_mins ?? raw.runtime ?? 0)

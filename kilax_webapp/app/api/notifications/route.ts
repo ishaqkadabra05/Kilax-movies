@@ -26,7 +26,15 @@ export async function GET(req: NextRequest) {
   if (error) return NextResponse.json({ error: "Unable to load notifications" }, { status: 500 });
 
   const notifications = (data || [])
-    .map((row: any) => ({ ...row.notifications, read_at: row.read_at }))
+    .map((row: any) => {
+      const notification = row.notifications || {};
+      const imageSource = notification.data?.thumbnail || notification.data?.poster_url || notification.data?.image_url || notification.data?.image || notification.icon || null;
+      return {
+        ...notification,
+        thumbnail: imageSource,
+        read_at: row.read_at,
+      };
+    })
     .filter((notification: any) => notification.id);
   return NextResponse.json({ notifications, unreadCount: notifications.filter((item: any) => !item.read_at).length });
 }

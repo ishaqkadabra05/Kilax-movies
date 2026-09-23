@@ -8,12 +8,12 @@ export const GREEN = '#25D366'
 export const VJS = ['VJ Junior', 'VJ Ulio', 'VJ Emmy', 'VJ Icep', 'VJ Ivo']
 
 export const AVATARS = [
-  { emoji: '🎬', bg: 'linear-gradient(135deg,#1e3a8a,#3b82f6)' },
-  { emoji: '🎭', bg: 'linear-gradient(135deg,#581c87,#a855f7)' },
-  { emoji: '🦁', bg: 'linear-gradient(135deg,#78350f,#f59e0b)' },
-  { emoji: '⚡', bg: 'linear-gradient(135deg,#164e63,#06b6d4)' },
-  { emoji: '🔥', bg: 'linear-gradient(135deg,#7f1d1d,#ef4444)' },
-  { emoji: '🌟', bg: 'linear-gradient(135deg,#14532d,#22c55e)' },
+  { emoji: 'https://api.dicebear.com/9.x/adventurer/svg?seed=kilax-blue&backgroundColor=0d1117', bg: 'linear-gradient(135deg,#1e3a8a,#3b82f6)' },
+  { emoji: 'https://api.dicebear.com/9.x/adventurer/svg?seed=kilax-purple&backgroundColor=0d1117', bg: 'linear-gradient(135deg,#581c87,#a855f7)' },
+  { emoji: 'https://api.dicebear.com/9.x/adventurer/svg?seed=kilax-gold&backgroundColor=0d1117', bg: 'linear-gradient(135deg,#78350f,#f59e0b)' },
+  { emoji: 'https://api.dicebear.com/9.x/adventurer/svg?seed=kilax-cyan&backgroundColor=0d1117', bg: 'linear-gradient(135deg,#164e63,#06b6d4)' },
+  { emoji: 'https://api.dicebear.com/9.x/adventurer/svg?seed=kilax-red&backgroundColor=0d1117', bg: 'linear-gradient(135deg,#7f1d1d,#ef4444)' },
+  { emoji: 'https://api.dicebear.com/9.x/adventurer/svg?seed=kilax-green&backgroundColor=0d1117', bg: 'linear-gradient(135deg,#14532d,#22c55e)' },
 ]
 
 export const DEFAULT_AVATAR = AVATARS[0]

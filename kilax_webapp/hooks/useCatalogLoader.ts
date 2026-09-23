@@ -36,22 +36,21 @@ export function useCatalogLoader(_fallbackCatalog: MediaItem[]): CatalogState {
           throw new Error(payload.error || 'Reelplexi catalog unavailable')
         }
 
-        const movies = (payload.movies || []).map((item: any, index: number) =>
-          ({
+        const baseItems = [
+          ...(payload.movies || []).map((item: any, index: number) => ({
             ...mapMediaItem(item, 'movie', index),
             isLatest: Boolean(item.latest || item.is_latest || index < 12),
-          })
-        )
-        const series = (payload.series || []).map((item: any, index: number) =>
-          ({
-            ...mapMediaItem(item, 'series', index + movies.length),
+          })),
+          ...(payload.series || []).map((item: any, index: number) => ({
+            ...mapMediaItem(item, 'series', index + (payload.movies || []).length),
             isLatest: Boolean(item.latest || item.is_latest || index < 12),
-          })
-        )
+          })),
+        ]
 
         if (!cancelled) {
-          setState({ catalog: [...movies, ...series], ready: true, error: null })
+          setState({ catalog: baseItems, ready: true, error: null })
         }
+
       })
       .catch(error => {
         console.warn('[useCatalogLoader] Reelplexi catalog unavailable:', error)
