@@ -1,9 +1,9 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { User } from '@supabase/supabase-js'
 import { legacySupabase, supabase } from '@/lib/supabase'
-import { getUserSubscription, userHasActivePaidSubscription } from '@/lib/subscriptions'
+import { userHasActivePaidSubscription } from '@/lib/subscriptions'
 
 interface AuthContextType {
   user: User | null
@@ -23,66 +23,64 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [isPremium, setIsPremium] = useState(false)
+  const lastPremiumCheckUserId = useRef<string | null>(null)
 
-  // Check premium status when user changes
   const checkPremiumStatus = async (currentUser: User | null) => {
     if (!currentUser) {
+      lastPremiumCheckUserId.current = null
       setIsPremium(false)
       return
     }
 
+    const currentUserId = currentUser.id
+    if (lastPremiumCheckUserId.current === currentUserId) {
+      return
+    }
+
+    lastPremiumCheckUserId.current = currentUserId
+
     try {
-      const hasActivePaidSubscription = await userHasActivePaidSubscription(currentUser.id)
-
-      console.log('Premium status check:', {
-        hasActivePaidSubscription,
-      })
-
+      const hasActivePaidSubscription = await userHasActivePaidSubscription(currentUserId)
       setIsPremium(hasActivePaidSubscription)
     } catch (error) {
-      console.error('Error checking premium status:', error)
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('Error checking premium status:', error)
+      }
       setIsPremium(false)
     }
   }
 
   useEffect(() => {
-    console.log('AuthProvider: Initializing auth state')
-    
-    // Add a fallback timeout to ensure loading never gets stuck
     const loadingTimeout = setTimeout(() => {
-      console.warn('Auth loading timeout reached, forcing loading to false')
       setLoading(false)
-    }, 10000) // 10 second timeout
+    }, 10000)
 
     supabase.auth.getSession().then(async ({ data: { session } }) => {
-      console.log('AuthProvider: Got session', session?.user?.email || 'no user')
       setUser(session?.user ?? null)
-      
-      // Check premium status but don't block loading state
+
       if (session?.user) {
-        console.log('AuthProvider: Checking premium status for user')
-        checkPremiumStatus(session.user).catch(console.error)
+        void checkPremiumStatus(session.user)
       }
-      
-      console.log('AuthProvider: Setting loading to false')
+
       setLoading(false)
       clearTimeout(loadingTimeout)
     }).catch((error) => {
-      console.error('AuthProvider: Error getting session:', error)
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('AuthProvider: Error getting session:', error)
+      }
       setLoading(false)
       clearTimeout(loadingTimeout)
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('AuthProvider: Auth state changed', event, session?.user?.email || 'no user')
-        setUser(session?.user ?? null)
+        const nextUser = session?.user ?? null
+        setUser(nextUser)
 
-        // Only check premium status if we have a user and it's not a sign out event
-        if (session?.user && event !== 'SIGNED_OUT') {
-          // Don't await this to prevent blocking the auth state change
-          checkPremiumStatus(session.user).catch(console.error)
+        if (nextUser && event !== 'SIGNED_OUT') {
+          void checkPremiumStatus(nextUser)
         } else {
+          lastPremiumCheckUserId.current = null
           setIsPremium(false)
         }
 

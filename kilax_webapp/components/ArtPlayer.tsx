@@ -223,6 +223,19 @@ function ArtPlayerCore({
   }, [])
 
   useEffect(() => {
+    const restoreSavedPositionIfNeeded = () => {
+      const video = playerRef.current?.video
+      if (!video) return
+      if (video.currentTime > 3) return
+      try {
+        const saved = Number(localStorage.getItem(`kilax-resume:${resolvedUrl}`) || 0)
+        const duration = Number.isFinite(video.duration) ? video.duration : 0
+        if (saved > 0 && saved < duration && video.currentTime < 1) {
+          video.currentTime = Math.max(saved, 0)
+        }
+      } catch { /* storage is optional */ }
+    }
+
     const handlePageExit = () => {
       const video = playerRef.current?.video
       if (!video || video.paused || video.ended) return
@@ -235,12 +248,7 @@ function ArtPlayerCore({
       void video.requestPictureInPicture?.().catch(() => video.pause())
     }
     const handleReturn = () => {
-      const video = playerRef.current?.video
-      if (!video) return
-      try {
-        const saved = Number(localStorage.getItem(`kilax-resume:${resolvedUrl}`) || 0)
-        if (saved > 0 && video.currentTime < 1) video.currentTime = saved
-      } catch { /* storage is optional */ }
+      restoreSavedPositionIfNeeded()
     }
     const handleVisibility = () => { if (document.hidden) handlePageExit(); else handleReturn() }
     document.addEventListener('visibilitychange', handleVisibility)
@@ -541,7 +549,11 @@ function ArtPlayerCore({
 
     art.on('ready', () => {
       onLoadRef.current?.()
-      if (initialPosition > 0 && art.duration > initialPosition + 3) art.currentTime = initialPosition
+      const hasResumePosition = initialPosition > 0 && art.duration > initialPosition + 3
+      const hasPlaybackProgress = Number.isFinite(art.currentTime) && art.currentTime > 3
+      if (hasResumePosition && !hasPlaybackProgress) {
+        art.currentTime = initialPosition
+      }
 
       const tryPlay = async () => {
         try { await art.play() } catch {
@@ -595,7 +607,11 @@ function ArtPlayerCore({
       document.body.style.overflow = state ? 'hidden' : 'auto'
       if (state) {
         lockLandscape()
-        setTimeout(() => { art?.controls && (art.controls.show = true) }, 500)
+        setTimeout(() => {
+          if (art?.controls) {
+            art.controls.show = true
+          }
+        }, 500)
       } else {
         unlockOrientation()
       }
@@ -603,11 +619,21 @@ function ArtPlayerCore({
 
     art.on('fullscreenWeb', (state: boolean) => {
       document.body.style.overflow = state ? 'hidden' : 'auto'
-      if (state) setTimeout(() => { art?.controls && (art.controls.show = true) }, 300)
+      if (state) {
+        setTimeout(() => {
+          if (art?.controls) {
+            art.controls.show = true
+          }
+        }, 300)
+      }
     })
 
     const onOrientationChange = () => {
-      setTimeout(() => { art?.controls && (art.controls.show = true) }, 300)
+      setTimeout(() => {
+        if (art?.controls) {
+          art.controls.show = true
+        }
+      }, 300)
     }
     window.screen.orientation?.addEventListener('change', onOrientationChange)
     window.addEventListener('orientationchange', onOrientationChange)
@@ -718,7 +744,9 @@ function NativeHLSPlayer({
     if (!v || !url || url === '#') return
     setStreamError(null)
     v.load()
-    if (initialPosition > 0) v.currentTime = initialPosition
+    if (initialPosition > 0 && v.currentTime < 3 && (!Number.isFinite(v.duration) || v.duration > initialPosition + 3)) {
+      v.currentTime = initialPosition
+    }
     const tryPlay = async () => {
       try { await v.play() } catch {
         try { v.muted = true; await v.play() } catch { /* user taps */ }
@@ -741,10 +769,11 @@ function NativeHLSPlayer({
     }
     const handleReturn = () => {
       const video = videoRef.current
-      if (!video) return
+      if (!video || video.currentTime > 3) return
       try {
         const saved = Number(localStorage.getItem(`kilax-resume:${url}`) || 0)
-        if (saved > 0 && video.currentTime < 1) video.currentTime = saved
+        const duration = Number.isFinite(video.duration) ? video.duration : 0
+        if (saved > 0 && saved < duration && video.currentTime < 1) video.currentTime = saved
       } catch { /* storage is optional */ }
     }
     const handleVisibility = () => { if (document.hidden) handlePageExit(); else handleReturn() }

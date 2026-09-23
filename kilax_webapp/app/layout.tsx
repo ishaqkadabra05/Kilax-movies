@@ -17,8 +17,8 @@ export const metadata: Metadata = {
 }
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  // Only load OneSignal on the production domain — it rejects localhost anyway
-  // and throws noisy errors in the dev console.
+  // Only load OneSignal on the production domain. Localhost and blocked contexts
+  // do not support a working OneSignal SW registration and should skip silently.
   const isProduction = process.env.NODE_ENV === 'production'
 
   return (
@@ -68,7 +68,6 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             • tabIndex={-1}         — not reachable by keyboard
             • No text content       — nothing for screen readers to announce
           ──────────────────────────────────────────────────────────────────── */}
-        {/* eslint-disable-next-line jsx-a11y/anchor-has-content */}
         <a
           href="/api/trap"
           style={{ display: "none" }}
