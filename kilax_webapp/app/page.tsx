@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { signInWithEmail, signOut } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
-import { Search, Phone, Bell, X, ChevronLeft, ChevronRight, Plus, Check, Bookmark, Home, Film, Tv2, Heart, History, Smartphone, UserRound, Crown, Library, Flame, Sparkles, Clapperboard, Compass, Share2, Users, Gift, Link2, Play, Clapperboard as ClapperIcon } from "lucide-react";
+import { Search, Phone, Bell, X, ChevronLeft, ChevronRight, Plus, Check, Bookmark, Home, Film, Tv2, Heart, History, Smartphone, UserRound, Crown, Library, Flame, Sparkles, Clapperboard, Compass, Share2, Users, Gift, Link2, Play, Clapperboard as ClapperIcon, PlayCircle, Download, MonitorPlay, BellRing } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import OneSignalPrompt from "@/components/OneSignalPrompt";
 import Footer from "@/components/Footer";
@@ -86,6 +86,25 @@ function LoadingBars({ label, compact=false }: { label?:string; compact?:boolean
 
 function WhatsAppIcon({ size=24 }: { size?:number }) {
   return <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" fill="currentColor"><path d="M16 3.5A12.5 12.5 0 0 0 5.17 22.2L3.5 28.5l6.52-1.61A12.5 12.5 0 1 0 16 3.5Zm0 22.7c-1.86 0-3.68-.5-5.27-1.45l-.38-.23-3.87.96 1-3.75-.25-.39A9.95 9.95 0 1 1 16 26.2Zm5.47-7.37c-.3-.15-1.77-.87-2.05-.97-.28-.1-.48-.15-.68.15-.2.3-.78.97-.96 1.17-.18.2-.35.22-.65.08-.3-.15-1.26-.46-2.4-1.47-.89-.79-1.49-1.77-1.67-2.07-.18-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.18.2-.3.3-.5.1-.2.05-.37-.03-.52-.08-.15-.68-1.64-.93-2.25-.25-.6-.5-.52-.68-.53h-.58c-.2 0-.52.08-.8.38-.28.3-1.04 1.02-1.04 2.48s1.07 2.88 1.22 3.08c.15.2 2.1 3.2 5.09 4.49.71.31 1.26.5 1.69.64.71.23 1.36.2 1.87.12.57-.08 1.77-.72 2.02-1.42.25-.7.25-1.3.18-1.42-.08-.13-.28-.2-.58-.35Z"/></svg>;
+}
+
+function TelegramIcon({ size=24 }: { size?:number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
+      <rect x="2" y="2" width="28" height="28" rx="8" fill="#229ED9" />
+      <path d="M23.6 9.2 7.8 16.1c-.9.4-.9 1 .2 1.2l4 1.2 1.7 4.9c.2.6.9.8 1.3.4l2.3-2.3 4.5 3.3c.8.6 1.4.2 1.6-.8l2.3-12.7c.2-1.1-.5-1.5-1.4-1.2Zm-8.7 9.8.9-5 6.7 4.3-7.6.7Z" fill="white"/>
+    </svg>
+  );
+}
+
+function TikTokIcon({ size=24 }: { size?:number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
+      <rect x="2" y="2" width="28" height="28" rx="8" fill="#111827" />
+      <path d="M18.7 8.8c1.2 1.1 2.4 1.8 3.5 2.1v3.1c-1.3-.1-2.3-.4-3.4-1v7.4a5.1 5.1 0 1 1-5.1-5.1c.3 0 .6 0 .9.1v3.1a2.2 2.2 0 1 0 1.4 2.1V8.8h3.7Z" fill="#FF2F92"/>
+      <path d="M21.9 10.4c.6 0 1.2.1 1.7.3v2.5a6.8 6.8 0 0 0-1.7-.3V10.4Z" fill="#00F2EA"/>
+    </svg>
+  );
 }
 
 // ─── Atoms ────────────────────────────────────────────────────────────────────
@@ -365,16 +384,46 @@ function PremiumPaywall({ item, onClose, onUpgrade, action="play" }: { item:Medi
   );
 }
 
-function FreeAllowanceLimitModal({ onClose, onUpgrade }: { onClose:()=>void; onUpgrade:()=>void }) {
+function FreeAllowanceLimitModal({ onClose, onUpgrade, resetAt }: { onClose:()=>void; onUpgrade:()=>void; resetAt?:string }) {
+  const [countdown, setCountdown] = useState("");
+  
+  useEffect(() => {
+    if (!resetAt) return;
+    
+    const updateCountdown = () => {
+      const now = Date.now();
+      const resetTime = new Date(resetAt).getTime();
+      const diff = Math.max(0, resetTime - now);
+      
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+      
+      setCountdown(`${hours}h ${String(minutes).padStart(2, '0')}m ${String(seconds).padStart(2, '0')}s`);
+    };
+    
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    return () => clearInterval(interval);
+  }, [resetAt]);
+
   return (
     <div onClick={onClose} style={{ position:"fixed", inset:0, zIndex:220, background:"rgba(3,5,12,0.82)", backdropFilter:"blur(20px)", display:"flex", alignItems:"center", justifyContent:"center", padding:24 }}>
       <div onClick={e=>e.stopPropagation()} className="modal-glass fade-up" style={{ borderRadius:22, width:"100%", maxWidth:420, overflow:"hidden", border:"1px solid rgba(249,115,22,0.2)", boxShadow:"0 48px 120px rgba(0,0,0,0.8)" }}>
         <div style={{ padding:"40px 40px 36px", textAlign:"center" }}>
           <div style={{ width:68, height:68, borderRadius:"50%", background:"rgba(249,115,22,0.1)", border:"1px solid rgba(249,115,22,0.25)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:30, margin:"0 auto 22px" }}>⏱</div>
-          <h2 style={{ color:"white", fontSize:22, fontWeight:700, marginBottom:10 }}>Streaming limit reached</h2>
-          <p style={{ color:"#64748b", fontSize:14, lineHeight:1.75, marginBottom:28 }}>Your free stream limit has been reached. View plans to continue watching or go back to browse more titles.</p>
-          <BlueBtn onClick={onUpgrade} style={{ width:"100%", justifyContent:"center", marginBottom:10 }}>View Plans</BlueBtn>
-          <button onClick={onClose} style={{ width:"100%", padding:"12px", background:"transparent", color:"#475569", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, fontSize:13, cursor:"pointer" }}>Back</button>
+          <h2 style={{ color:"white", fontSize:22, fontWeight:700, marginBottom:10 }}>Daily Limit Reached</h2>
+          <p style={{ color:"#64748b", fontSize:14, lineHeight:1.75, marginBottom:12 }}>
+            You've reached your free daily streaming limit. Upgrade to premium for unlimited access or wait for your limit to reset.
+          </p>
+          {resetAt && countdown && (
+            <div style={{ background:"rgba(249,115,22,0.08)", border:"1px solid rgba(249,115,22,0.2)", borderRadius:12, padding:"12px 16px", marginBottom:24 }}>
+              <p style={{ color:"#94a3b8", fontSize:11, textTransform:"uppercase", letterSpacing:"0.05em", fontWeight:600, marginBottom:4 }}>Resets in</p>
+              <p style={{ color:"#fb923c", fontSize:18, fontWeight:700, fontFamily:"'Courier New', monospace", margin:0 }}>{countdown}</p>
+            </div>
+          )}
+          <BlueBtn onClick={onUpgrade} style={{ width:"100%", justifyContent:"center", marginBottom:10 }}>Upgrade to Premium</BlueBtn>
+          <button onClick={onClose} style={{ width:"100%", padding:"12px", background:"transparent", color:"#475569", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, fontSize:13, cursor:"pointer" }}>Back to Browse</button>
         </div>
       </div>
     </div>
@@ -421,7 +470,7 @@ function SeriesDetailPage({ series, onClose, onWatch }: { series:MediaItem; onCl
 
   return (
     <div style={{ position:"fixed", inset:0, zIndex:70, background:BG, overflowY:"auto", paddingTop:`env(safe-area-inset-top,0px)` }}>
-      <div style={{ position:"relative", height:mobile?680:620, minHeight:mobile?680:620, overflow:"hidden" }}>
+      <div style={{ position:"relative", height:mobile?"42vh":"52vh", minHeight:300, overflow:"hidden" }}>
         <img src={series.heroImage||series.image} alt={series.title} style={{ width:"100%", height:"100%", objectFit:"cover" }} />
         <div style={{ position:"absolute", inset:0, background:"linear-gradient(to right,rgba(13,17,23,0.97) 0%,rgba(13,17,23,0.55) 55%,rgba(13,17,23,0.08) 100%)" }} />
         <div style={{ position:"absolute", inset:0, background:"linear-gradient(to top,#0d1117 0%,transparent 50%)" }} />
@@ -432,7 +481,7 @@ function SeriesDetailPage({ series, onClose, onWatch }: { series:MediaItem; onCl
             
             <StarRating score={seriesScore} /><span style={{color:"#94a3b8",fontSize:12}}>{seriesYear}</span>
           </div>
-          <h1 style={{ fontFamily:"'Anton',sans-serif", fontSize:mobile?30:48, color:"white", lineHeight:0.95, marginBottom:14, letterSpacing:"0.01em", textShadow:"2px 2px 0 #050709,-2px -2px 0 #050709,2px -2px 0 #050709,-2px 2px 0 #050709" }}>{series.title}</h1>
+          <h1 style={{ fontFamily:"'Anton',sans-serif", fontSize:mobile?30:48, color:"white", lineHeight:0.95, marginBottom:14, letterSpacing:"0.01em" }}>{series.title}</h1>
           <div style={{ display:"flex", gap:14, flexWrap:"wrap", marginBottom:14, fontSize:13, alignItems:"center" }}>
             <StarRating score={seriesScore} />
             <span style={{ color:"#94a3b8" }}>{seriesYear}</span>
@@ -980,7 +1029,7 @@ function Navbar({ page, setPage, scrolled, myListCount, onSearch, onNotif, unrea
         )}
         {isLoggedIn ? (
           <>
-            <button onClick={()=>setPage("subscription")} style={{ background:SKYBLUE, color:"white", border:"none", borderRadius:8, padding:mobile?"6px 12px":"7px 14px", fontSize:mobile?11:12, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}>UPGRADE</button>
+            <button onClick={()=>setPage("subscription")} style={{ background:SKYBLUE, color:"white", border:"none", borderRadius:8, padding:mobile?"6px 12px":"7px 14px", fontSize:mobile?11:12, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}>Subscribe</button>
             {!mobile && (
               <button onClick={()=>setPage("profile")} style={{ background:"none", border:"none", cursor:"pointer", borderRadius:"50%", outline:page==="profile"?`2px solid ${BLUE}`:"2px solid transparent", outlineOffset:3, padding:0 }}>
                 <Avatar emoji={user.avatar} bg={user.avatarBg} size={36} />
@@ -1171,60 +1220,194 @@ function HistoryPage({ history, onOpen, onClear }: { history:number[]; onOpen:(m
 // ─── Get App Page ─────────────────────────────────────────────────────────────
 function GetAppPage() {
   const { mobile } = useResponsive();
-  const px = mobile?16:48;
+  const px = mobile ? 18 : 48;
   const [installPrompt, setInstallPrompt] = useState<any>(null);
+
   useEffect(() => {
-    const capturePrompt = (event: Event) => { event.preventDefault(); setInstallPrompt(event); };
+    const capturePrompt = (event: Event) => {
+      event.preventDefault();
+      setInstallPrompt(event);
+    };
+
     window.addEventListener("beforeinstallprompt", capturePrompt);
     return () => window.removeEventListener("beforeinstallprompt", capturePrompt);
   }, []);
+
   const installPwa = async () => {
     if (!installPrompt) return;
     await installPrompt.prompt();
     setInstallPrompt(null);
   };
+
+  const featureCards = [
+    { icon: <PlayCircle size={22} />, title: "Immersive VJ audio", desc: "Listen in a cinematic, polished sound environment across every title." },
+    { icon: <Download size={22} />, title: "Fast offline access", desc: "Download premium content and keep watching without network interruptions." },
+    { icon: <MonitorPlay size={22} />, title: "4K streaming", desc: "Enjoy crisp visuals and smooth playback with modern streaming quality." },
+    { icon: <BellRing size={22} />, title: "Live release updates", desc: "Stay on top of new premieres, episodes, and exclusive drops." },
+  ];
+
   return (
-    <div style={{ paddingTop:`calc(${mobile?54:66}px + env(safe-area-inset-top,0px))`, paddingBottom:80, minHeight:"100%", background:BG }}>
-      <div style={{ maxWidth:600, margin:"0 auto", padding:`0 ${px}px`, textAlign:"center" }}>
-        <div style={{ margin:"60px 0 36px" }}>
-          <div style={{ fontSize:80, marginBottom:24 }}>📱</div>
-          <h1 style={{ fontFamily:"'Anton',sans-serif", fontSize:mobile?36:52, color:"white", marginBottom:14, lineHeight:1 }}>Kilax Movies App</h1>
-          <p style={{ color:"#64748b", fontSize:15, lineHeight:1.75, marginBottom:32 }}>Watch your favourite movies and series with VJ audio on the go. Download the Kilax Movies app and enjoy unlimited streaming anytime, anywhere.</p>
-          <a href="https://play.google.com/store/apps/details?id=com.app.kilax" target="_blank" rel="noopener noreferrer" style={{ display:"inline-flex", alignItems:"center", gap:14, background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.14)", borderRadius:16, padding:"16px 28px", textDecoration:"none", transition:"all 0.2s", boxShadow:"0 8px 32px rgba(0,0,0,0.4)" }}
-            onMouseEnter={e=>((e.currentTarget as HTMLAnchorElement).style.transform="scale(1.04)")}
-            onMouseLeave={e=>((e.currentTarget as HTMLAnchorElement).style.transform="scale(1)")}
-          >
-            <span style={{ fontSize:36 }}>▶</span>
-            <div style={{ textAlign:"left" }}>
-              <p style={{ color:"#94a3b8", fontSize:11, margin:0, letterSpacing:"0.05em" }}>GET IT ON</p>
-              <p style={{ color:"white", fontSize:22, fontWeight:700, margin:0, fontFamily:"'DM Sans',sans-serif" }}>Google Play</p>
+    <>
+      <style>{`
+        @keyframes floatCard {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-8px); }
+        }
+        @keyframes pulseGlow {
+          0%, 100% { box-shadow: 0 0 0 rgba(96,165,250,0.0); }
+          50% { box-shadow: 0 0 28px rgba(96,165,250,0.18); }
+        }
+        @keyframes fadeUp {
+          0% { opacity: 0; transform: translateY(18px); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
+        .premium-app-shell {
+          animation: fadeUp 560ms ease-out both;
+        }
+        .premium-hero-visual {
+          animation: floatCard 7s ease-in-out infinite;
+        }
+        .premium-cta {
+          transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+        }
+        .premium-cta:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 18px 32px rgba(37,99,235,0.28);
+        }
+        .premium-feature-card {
+          transition: transform 200ms ease, border-color 200ms ease, box-shadow 200ms ease;
+        }
+        .premium-feature-card:hover {
+          transform: translateY(-4px);
+          border-color: rgba(96,165,250,0.26);
+          box-shadow: 0 20px 30px rgba(15,23,42,0.22);
+        }
+      `}</style>
+
+      <div
+        className="premium-app-shell"
+        style={{
+          paddingTop: `calc(${mobile ? 54 : 66}px + env(safe-area-inset-top,0px))`,
+          paddingBottom: 80,
+          minHeight: "100%",
+          background: "radial-gradient(circle at 20% 10%, rgba(37,99,235,0.18), transparent 24%), radial-gradient(circle at 80% 20%, rgba(15,118,110,0.16), transparent 22%), linear-gradient(180deg, #050b14 0%, #0b1220 100%)",
+        }}
+      >
+        <div style={{ maxWidth: 1200, margin: "0 auto", padding: `0 ${px}px`, position: "relative" }}>
+          <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "linear-gradient(120deg, rgba(148,163,184,0.03), transparent 48%, rgba(96,165,250,0.05))" }} />
+
+          <div style={{ position: "relative", display: "grid", gridTemplateColumns: mobile ? "1fr" : "1.08fr 0.92fr", gap: 26, alignItems: "center", paddingTop: mobile ? 32 : 52, paddingBottom: 24 }}>
+            <div>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 8, border: "1px solid rgba(148,163,184,0.18)", background: "rgba(15,23,42,0.7)", borderRadius: 999, padding: "8px 14px", color: "#bfdbfe", fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase" }}>
+                <span style={{ fontSize: 10, color: "#60a5fa" }}>●</span>
+                Get the app
+              </div>
+
+              <h1 style={{ fontFamily: "'Segoe UI', 'Inter', sans-serif", fontSize: mobile ? 34 : 52, color: "#f8fafc", margin: "18px 0 14px", lineHeight: 1.08, letterSpacing: "-0.05em", fontWeight: 600 }}>
+                A cleaner way to
+                <span style={{ display: "block", color: "#cbd5e1" }}>watch premium entertainment.</span>
+              </h1>
+
+              <p style={{ color: "#94a3b8", fontSize: mobile ? 15 : 16, lineHeight: 1.8, maxWidth: 620, margin: "0 0 26px" }}>
+                Enjoy a refined streaming experience with cinematic VJ audio, instant access to new releases, and a smoother mobile-first layout built for everyday viewing.
+              </p>
+
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 20 }}>
+                <a
+                  href="https://play.google.com/store/apps/details?id=com.app.kilax"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="premium-cta"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 14,
+                    background: "linear-gradient(135deg, #1d4ed8 0%, #2563eb 35%, #0ea5e9 100%)",
+                    border: "1px solid rgba(96,165,250,0.38)",
+                    borderRadius: 18,
+                    padding: "16px 22px",
+                    textDecoration: "none",
+                    boxShadow: "0 18px 36px rgba(37,99,235,0.28)",
+                  }}
+                >
+                  <img src="/google_play.svg" alt="Google Play" style={{ width: 30, height: 30, display: "block" }} />
+                  <div style={{ textAlign: "left" }}>
+                    <p style={{ color: "rgba(255,255,255,0.8)", fontSize: 10, margin: 0, letterSpacing: "0.08em", textTransform: "uppercase" }}>Get it on</p>
+                    <p style={{ color: "white", fontSize: 22, fontWeight: 800, margin: 0, fontFamily: "'DM Sans',sans-serif" }}>Google Play</p>
+                  </div>
+                </a>
+
+                <button
+                  onClick={() => void installPwa()}
+                  disabled={!installPrompt}
+                  style={{
+                    background: installPrompt ? "rgba(14,165,233,0.12)" : "rgba(255,255,255,0.04)",
+                    color: installPrompt ? "#dbeafe" : "#64748b",
+                    border: installPrompt ? "1px solid rgba(96,165,250,0.4)" : "1px solid rgba(148,163,184,0.18)",
+                    borderRadius: 18,
+                    padding: "15px 18px",
+                    cursor: installPrompt ? "pointer" : "default",
+                    fontWeight: 700,
+                    fontFamily: "'DM Sans',sans-serif",
+                    minWidth: 170,
+                  }}
+                >
+                  {installPrompt ? "Install on TV & Laptop" : "Install on TV & Laptop"}
+                </button>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: mobile ? "1fr" : "repeat(3, minmax(0, 1fr))", gap: 12, maxWidth: 650 }}>
+                {[
+                  { title: "iPhone / iPad", text: "Open in Safari, tap Share, then Add to Home Screen." },
+                  { title: "Android", text: "Install directly from Chrome or via the Play Store." },
+                  { title: "Smart TV", text: "Use the browser and save it as a quick launch shortcut." },
+                ].map((item) => (
+                  <div key={item.title} style={{ background: "rgba(15,23,42,0.8)", border: "1px solid rgba(148,163,184,0.12)", borderRadius: 16, padding: 14 }}>
+                    <strong style={{ display: "block", color: "white", marginBottom: 4, fontSize: 14 }}>{item.title}</strong>
+                    <span style={{ color: "#64748b", fontSize: 11, lineHeight: 1.45 }}>{item.text}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-          </a>
-          <div style={{ display:"grid", gridTemplateColumns:mobile?"1fr":"repeat(3,1fr)", gap:10, marginTop:16, textAlign:"left" }}>
-            <button onClick={()=>void installPwa()} disabled={!installPrompt} style={{ background:installPrompt?"rgba(59,130,246,.14)":"rgba(255,255,255,.04)", border:"1px solid rgba(96,165,250,.25)", borderRadius:12, padding:14, color:installPrompt?"#bfdbfe":"#64748b", cursor:installPrompt?"pointer":"default" }}>
-              <strong style={{ display:"block", color:installPrompt?"white":"#94a3b8", marginBottom:4 }}>Install PWA</strong>
-              <span style={{ fontSize:11 }}>Windows, Android and supported browsers</span>
-            </button>
-            <div style={{ background:CARD, border:"1px solid rgba(255,255,255,.06)", borderRadius:12, padding:14 }}><strong style={{ display:"block", color:"white", marginBottom:4 }}>iPhone / iPad</strong><span style={{ color:"#64748b", fontSize:11 }}>Open Kilax in Safari, tap Share, then Add to Home Screen.</span></div>
-            <div style={{ background:CARD, border:"1px solid rgba(255,255,255,.06)", borderRadius:12, padding:14 }}><strong style={{ display:"block", color:"white", marginBottom:4 }}>Smart TV</strong><span style={{ color:"#64748b", fontSize:11 }}>Open Kilax in the TV browser and choose Add to Home Screen or bookmark it.</span></div>
+
+            <div className="premium-hero-visual" style={{ position: "relative" }}>
+              <div style={{ position: "relative", background: "linear-gradient(180deg, rgba(15,23,42,0.9) 0%, rgba(17,24,39,0.92) 100%)", border: "1px solid rgba(148,163,184,0.18)", borderRadius: 30, boxShadow: "0 28px 90px rgba(2,6,23,0.7)", padding: 20, overflow: "hidden" }}>
+                <div style={{ position: "absolute", inset: "auto 18% -40% 18%", height: 200, background: "radial-gradient(circle, rgba(96,165,250,0.24), transparent 58%)", filter: "blur(32px)" }} />
+
+                <div style={{ position: "relative", background: "linear-gradient(180deg, rgba(30,41,59,0.9) 0%, rgba(15,23,42,0.9) 100%)", borderRadius: 22, border: "1px solid rgba(148,163,184,0.12)", padding: 20 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
+                    <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#22c55e", boxShadow: "0 0 18px rgba(34,197,94,0.9)", display: "inline-block" }} />
+                    <span style={{ color: "#bbf7d0", fontSize: 12, letterSpacing: "0.14em", textTransform: "uppercase", fontWeight: 700 }}>Kilax is live</span>
+                  </div>
+
+                  <div style={{ height: 205, borderRadius: 18, background: "linear-gradient(135deg, rgba(30,64,175,0.96) 0%, rgba(15,118,110,0.8) 42%, rgba(15,23,42,0.95) 100%)", position: "relative", overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", display: "grid", placeItems: "center" }}>
+                    <div style={{ position: "absolute", inset: 0, background: "linear-gradient(120deg, rgba(255,255,255,0.14), transparent 48%)" }} />
+                    <div style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
+                      <div style={{ width: 84, height: 84, borderRadius: 22, background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.16)", display: "grid", placeItems: "center", padding: 10, boxShadow: "0 16px 30px rgba(2,6,23,0.28)" }}>
+                        <img src="/logo-512.png" alt="Kilax Movies logo" style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
+                      </div>
+                      <div style={{ color: "#dbeafe", fontSize: 10, letterSpacing: "0.14em", textTransform: "uppercase", marginTop: 12 }}>Entertainment at it&apos;s Peak</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ paddingTop: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: mobile ? "1fr" : "repeat(4, minmax(0, 1fr))", gap: 14 }}>
+              {featureCards.map((card) => (
+                <div key={card.title} className="premium-feature-card" style={{ background: "rgba(15,23,42,0.78)", border: "1px solid rgba(148,163,184,0.12)", borderRadius: 18, padding: "22px 18px", backdropFilter: "blur(12px)" }}>
+                  <div style={{ width: 46, height: 46, borderRadius: 14, background: "rgba(96,165,250,0.12)", border: "1px solid rgba(96,165,250,0.26)", display: "grid", placeItems: "center", color: "#7dd3fc", marginBottom: 14 }}>{card.icon}</div>
+                  <h3 style={{ color: "white", fontSize: 18, margin: "0 0 8px", fontWeight: 700 }}>{card.title}</h3>
+                  <p style={{ color: "#94a3b8", margin: 0, fontSize: 13, lineHeight: 1.6 }}>{card.desc}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:14, marginTop:32 }}>
-          {[
-            { icon:"🎬", title:"All VJ Audio", desc:"Watch dubbed in your preferred VJ voice" },
-            { icon:"📥", title:"Offline Downloads", desc:"Download and watch without internet" },
-            { icon:"📺", title:"HD Streaming", desc:"Enjoy crisp 1080p and 4K quality" },
-            { icon:"🔔", title:"New Release Alerts", desc:"Never miss a new episode or movie" },
-          ].map(f=>(
-            <div key={f.title} style={{ background:CARD, border:"1px solid rgba(255,255,255,0.06)", borderRadius:14, padding:"20px 16px", textAlign:"left" }}>
-              <p style={{ fontSize:28, marginBottom:8 }}>{f.icon}</p>
-              <p style={{ color:"white", fontWeight:700, fontSize:14, marginBottom:4 }}>{f.title}</p>
-              <p style={{ color:"#64748b", fontSize:12, lineHeight:1.6 }}>{f.desc}</p>
-            </div>
-          ))}
-        </div>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -1654,6 +1837,9 @@ function ProfilePage({ user, setUser, isPremium, subscriptionPlan, myListCount, 
   const [pickAvatar,  setPickAvatar ] = useState(false);
   const [confirmOut,  setConfirmOut ] = useState(false);
   const px = mobile?16:24;
+  const normalizedPlan = String(subscriptionPlan || "").trim().toLowerCase();
+  const isBasicPlan = normalizedPlan.includes("basic");
+  const isTrialPlan = normalizedPlan.includes("trial");
 
   const saveChanges = () => {
     const av = AVATARS[editAvatarI];
@@ -1700,11 +1886,17 @@ function ProfilePage({ user, setUser, isPremium, subscriptionPlan, myListCount, 
             <div style={{ flex:1, minWidth:0 }}>
               <h1 style={{ fontFamily:"'Anton',sans-serif", fontSize:mobile?24:30, color:"white", marginBottom:4 }}>{user.name}</h1>
               <p style={{ color:"#475569", fontSize:12 }}>Username: {user.name} · {user.email} · Since {user.joinDate}</p>
-              <div style={{ marginTop:8 }}>
-                {isPremium
-                  ? <span style={{ background:"rgba(249,115,22,0.12)", color:ORANGE, border:"1px solid rgba(249,115,22,0.3)", borderRadius:20, padding:"5px 14px", fontSize:11, fontWeight:700 }}>{subscriptionPlan || "Current Plan"}</span>
-                  : <button onClick={()=>setPage("subscription")} style={{ background:`linear-gradient(135deg,${SKYBLUE},${BLUE})`, color:"white", border:"none", borderRadius:20, padding:"6px 16px", fontSize:11, fontWeight:700, cursor:"pointer" }}>Upgrade</button>
-                }
+              <div style={{ marginTop:8, display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+                {isPremium ? (
+                  <>
+                    <span style={{ background:"rgba(249,115,22,0.12)", color:ORANGE, border:"1px solid rgba(249,115,22,0.3)", borderRadius:20, padding:"5px 14px", fontSize:11, fontWeight:700 }}>{subscriptionPlan || "Current Plan"}</span>
+                    {isBasicPlan && (
+                      <button onClick={()=>setPage("subscription")} style={{ background:`linear-gradient(135deg,${SKYBLUE},${BLUE})`, color:"white", border:"none", borderRadius:20, padding:"6px 16px", fontSize:11, fontWeight:700, cursor:"pointer" }}>Upgrade to Standard</button>
+                    )}
+                  </>
+                ) : (
+                  <button onClick={()=>setPage("subscription")} style={{ background:`linear-gradient(135deg,${SKYBLUE},${BLUE})`, color:"white", border:"none", borderRadius:20, padding:"6px 16px", fontSize:11, fontWeight:700, cursor:"pointer" }}>{isTrialPlan ? "Subscribe to Premium" : "Subscribe to Premium"}</button>
+                )}
               </div>
             </div>
             <div style={{ display:"flex", gap:8 }}>
@@ -1725,6 +1917,52 @@ function ProfilePage({ user, setUser, isPremium, subscriptionPlan, myListCount, 
             </div>
           ))}
         </div>
+
+        {(!isPremium || isTrialPlan) && (
+          <div style={{ ...card, background:`linear-gradient(135deg, rgba(59,130,246,0.08) 0%, rgba(147,197,253,0.05) 100%)`, border:"1px solid rgba(59,130,246,0.3)", marginBottom:16, display:"flex", alignItems:"center", gap:mobile?12:20, flexWrap:mobile?"wrap":"nowrap" }}>
+            <div style={{ width:mobile?56:72, height:mobile?56:72, borderRadius:16, background:"rgba(59,130,246,0.15)", border:"1px solid rgba(59,130,246,0.4)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+              <svg width={mobile?"28":"36"} height={mobile?"28":"36"} viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+              </svg>
+            </div>
+            <div style={{ flex:1, minWidth:0 }}>
+              <h3 style={{ color:"white", fontSize:mobile?16:18, fontWeight:800, marginBottom:4, lineHeight:1.2 }}>
+                {isTrialPlan ? "Upgrade to Premium" : "Unlock Premium Access"}
+              </h3>
+              <p style={{ color:"#94a3b8", fontSize:mobile?12:13, lineHeight:1.5, margin:0 }}>
+                {isTrialPlan 
+                  ? "Your trial is active. Upgrade now for unlimited streaming, ad-free viewing, and HD quality."
+                  : "Get unlimited streaming, ad-free viewing, HD quality, and exclusive content."}
+              </p>
+            </div>
+            <button 
+              onClick={()=>setPage("subscription")} 
+              style={{ 
+                background:`linear-gradient(135deg,${SKYBLUE},${BLUE})`, 
+                color:"white", 
+                border:"none", 
+                borderRadius:12, 
+                padding:mobile?"10px 20px":"12px 28px", 
+                fontSize:mobile?13:14, 
+                fontWeight:700, 
+                cursor:"pointer",
+                whiteSpace:"nowrap",
+                boxShadow:"0 4px 12px rgba(59,130,246,0.3)",
+                transition:"transform 0.2s, box-shadow 0.2s"
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.transform = "translateY(-2px)";
+                e.currentTarget.style.boxShadow = "0 6px 16px rgba(59,130,246,0.4)";
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.transform = "translateY(0)";
+                e.currentTarget.style.boxShadow = "0 4px 12px rgba(59,130,246,0.3)";
+              }}
+            >
+              {isTrialPlan ? "Upgrade Now" : "Get Premium"}
+            </button>
+          </div>
+        )}
 
         <button onClick={openReferralModal} style={{ width:"100%", display:"flex", alignItems:"center", gap:16, padding:"14px 16px", marginBottom:16, borderRadius:16, border:"1px solid rgba(249,115,22,.45)", background:"#171922", color:"white", textAlign:"left", cursor:"pointer" }}>
           <span style={{ width:64, height:64, borderRadius:16, display:"grid", placeItems:"center", flexShrink:0, background:"rgba(249,115,22,.1)", border:"1px solid rgba(249,115,22,.55)" }}><Share2 size={28} color="#fbbf24" /></span>
@@ -1809,8 +2047,8 @@ function SupportPanel({ onClose }: { onClose:()=>void }) {
   const { mobile } = useResponsive();
   const links = [
     { icon:<WhatsAppIcon size={19}/>, label:"Chat with Support", sub:"+256 780 846 800", href:"https://wa.me/256780846800", color:GREEN },
-    { icon:"✈️", label:"Telegram Community", sub:"@kilaxmovies community", href:"https://t.me/kilaxmovies", color:"#229ED9" },
-    { icon:"🎵", label:"Follow on TikTok", sub:"@kilaxmovies", href:"https://tiktok.com/@kilaxmovies", color:"#ff0050" },
+    { icon:<TelegramIcon size={19} />, label:"Telegram Community", sub:"@kilaxmovies community", href:"https://t.me/kilaxmovies", color:"#229ED9" },
+    { icon:<TikTokIcon size={19} />, label:"Follow on TikTok", sub:"@kilaxmovies", href:"https://tiktok.com/@kilaxmovies", color:"#ff0050" },
   ];
 
   return (
@@ -1843,10 +2081,13 @@ function SupportPanel({ onClose }: { onClose:()=>void }) {
 // ─── Floating Support Button ──────────────────────────────────────────────────
 function FloatingSupportBtn({ onClick }: { onClick:()=>void }) {
   return (
-    <button onClick={onClick} style={{ position:"fixed", bottom:`calc(24px + env(safe-area-inset-bottom,0px))`, right:24, zIndex:99, width:56, height:56, borderRadius:"50%", background:`linear-gradient(135deg,#128C7E,${GREEN})`, border:`2px solid rgba(37,211,102,0.4)`, color:"white", fontSize:26, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", boxShadow:`0 8px 32px rgba(37,211,102,0.4), 0 2px 8px rgba(0,0,0,0.5)`, transition:"transform 0.2s" }}
-      onMouseEnter={e=>(e.currentTarget.style.transform="scale(1.1)")}
-      onMouseLeave={e=>(e.currentTarget.style.transform="scale(1)")}
-    ><WhatsAppIcon size={27}/></button>
+    <button onClick={onClick} aria-label="Let's chat on WhatsApp" style={{ position:"fixed", bottom:`calc(22px + env(safe-area-inset-bottom,0px))`, right:20, zIndex:99, borderRadius:999, background:`linear-gradient(135deg,#128C7E,${GREEN})`, border:`2px solid rgba(37,211,102,0.4)`, color:"white", cursor:"pointer", display:"flex", alignItems:"center", gap:10, padding:"10px 18px 10px 12px", boxShadow:`0 8px 32px rgba(37,211,102,0.4), 0 2px 8px rgba(0,0,0,0.5)`, transition:"transform 0.2s, box-shadow 0.2s" }}
+      onMouseEnter={e=>{ e.currentTarget.style.transform="scale(1.04)"; e.currentTarget.style.boxShadow="0 12px 36px rgba(37,211,102,0.5), 0 2px 8px rgba(0,0,0,0.5)"; }}
+      onMouseLeave={e=>{ e.currentTarget.style.transform="scale(1)"; e.currentTarget.style.boxShadow="0 8px 32px rgba(37,211,102,0.4), 0 2px 8px rgba(0,0,0,0.5)"; }}
+    >
+      <span style={{ width:30, height:30, display:"grid", placeItems:"center", borderRadius:"50%", background:"rgba(255,255,255,0.12)" }}><WhatsAppIcon size={18}/></span>
+      <span style={{ fontSize:13, fontWeight:700, letterSpacing:"0.01em", whiteSpace:"nowrap" }}>Let&apos;s chat</span>
+    </button>
   );
 }
 
@@ -1937,7 +2178,7 @@ export default function App() {
       home: "/",
       movies: "/?page=movies",
       series: "/?page=series",
-      subscription: "/profile",
+      subscription: "/?page=subscription",
       mylist: "/?page=mylist",
       profile: "/?page=profile",
       history: "/history",
@@ -1969,6 +2210,46 @@ export default function App() {
   const [freeLimitReached, setFreeLimitReached] = useState(false);
   const [seriesDetail, setSeriesDetail] = useState<MediaItem | null>(null);
   const [storageUserId, setStorageUserId] = useState<string | null>(null);
+
+  // Use refs so the sync callbacks can read current values without adding
+  // them to the dependency array — preventing a re-trigger loop where
+  // setting seriesDetail/modal causes the useEffect to re-fire and
+  // immediately clear the state before Next.js has updated the pathname.
+  const seriesDetailRef = useRef(seriesDetail);
+  useEffect(() => { seriesDetailRef.current = seriesDetail; }, [seriesDetail]);
+  const modalRef = useRef(modal);
+  useEffect(() => { modalRef.current = modal; }, [modal]);
+
+  const syncSeriesDetailFromUrl = useCallback(() => {
+    if (typeof window === "undefined") return;
+
+    // Series detail no longer encodes an ID in the URL — the overlay is
+    // controlled purely by React state.  On back/forward navigation, simply
+    // close the overlay whenever the URL is no longer /?page=series (e.g.
+    // the user navigated away) or when there's definitely no series open.
+    const search = window.location.search;
+    const isSeriesPage = window.location.pathname === "/" && search === "?page=series";
+    if (!isSeriesPage && seriesDetailRef.current) {
+      setSeriesDetail(null);
+    }
+  }, []); // stable — reads current value via ref
+
+  const syncMovieDetailFromUrl = useCallback(() => {
+    if (typeof window === "undefined") return;
+
+    const pathname = window.location.pathname;
+    const movieMatch = pathname.match(/^\/movies\/([^/]+)$/);
+    if (!movieMatch) {
+      if (modalRef.current && modalRef.current.type === "movie") setModal(null);
+      return;
+    }
+
+    const movieId = decodeURIComponent(movieMatch[1]);
+    const item = mediaCatalog.find((entry) => String(entry.sourceId || entry.id) === movieId && entry.type === "movie");
+    if (item) {
+      setModal(item);
+    }
+  }, []); // stable — reads current values via refs, not closure captures
   const [storageReady, setStorageReady] = useState(false);
   const [watchHistory, setWatchHistory] = useState<number[]>(() => {
     if (typeof window === "undefined") return [];
@@ -1987,16 +2268,13 @@ export default function App() {
     const syncPageFromUrl = () => {
       const pathname = window.location.pathname;
       const requestedPage = new URLSearchParams(window.location.search).get("page");
-      const seriesRouteMatch = pathname.match(/^\/series\/([^/]+)$/);
-      if (seriesRouteMatch) {
-        const requestedId = decodeURIComponent(seriesRouteMatch[1]);
-        const requestedSeries = mediaCatalog.find(item => item.type === "series" && (item.sourceId === requestedId || String(item.id) === requestedId));
-        if (requestedSeries) setSeriesDetail(requestedSeries);
-        setPage("home");
+
+      if (pathname.startsWith("/movies/")) {
+        setPage("movies");
         return;
       }
-      setSeriesDetail(null);
-      const nextPage = requestedPage === "movies" || requestedPage === "series" || requestedPage === "mylist" || requestedPage === "profile" || requestedPage === "history" || requestedPage === "getapp" ? requestedPage
+
+      const nextPage = requestedPage === "movies" || requestedPage === "series" || requestedPage === "mylist" || requestedPage === "profile" || requestedPage === "history" || requestedPage === "getapp" || requestedPage === "subscription" ? requestedPage
         : pathname === "/movies" || pathname === "/series" ? "home"
         : pathname === "/subscribe" || pathname === "/subscription" ? "profile"
         : pathname === "/mylist" ? "mylist"
@@ -2011,7 +2289,7 @@ export default function App() {
     syncPageFromUrl();
     window.addEventListener("popstate", syncPageFromUrl);
     return () => window.removeEventListener("popstate", syncPageFromUrl);
-  }, [catalogReady]);
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined" || !storageUserId || !storageReady) return;
@@ -2102,22 +2380,34 @@ export default function App() {
     window.dispatchEvent(new Event("kilax-content-interacted"));
     if (item.premium && !isPremium) { setPaywall(item); return; }
     if (!isPremium && (item.isLatest || item.isTrending)) { setPaywall(item); return; }
+    
+    // Check free allowance for non-premium users BEFORE showing preparing screen
     if (!isPremium) {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) { setAuthModal("login"); return; }
+      
       const allowanceResponse = await fetch("/api/free-allowance", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
         body: JSON.stringify({ contentType: item.type, contentId: item.sourceId || String(item.id) }),
       });
       const allowanceResult = await allowanceResponse.json().catch(() => ({}));
-      if (!allowanceResponse.ok) { setFreeAllowance(allowanceResult.allowance || freeAllowance); setPaywall(item); return; }
+      
+      // If allowance check fails (403 = limit reached), show limit reached modal immediately
+      if (!allowanceResponse.ok) { 
+        setFreeAllowance(allowanceResult.allowance || freeAllowance); 
+        setFreeLimitReached(true);
+        return; 
+      }
       setFreeAllowance(allowanceResult.allowance);
     }
+    
+    // Only show preparing screen after allowance check passes
     setPreparingItem(item);
     setModal(null);
     setSeriesDetail(null);
     setWatchHistory(h=>{ const next=[item.id,...h.filter(id=>id!==item.id)]; return next.slice(0,50); });
+    
     if (item.type === "movie" && item.sourceId) {
       try {
         const { data: { session } } = await supabase.auth.getSession();
@@ -2128,9 +2418,9 @@ export default function App() {
         const data = await r.json();
         const source = data.video_url || data.stream_url || data.proxy_url || data.embed_url || data.embedUrl;
         if (!r.ok || !source) {
+          setPreparingItem(null); // Clear preparing screen
           if (data.limitReached || data.code) {
             setFreeLimitReached(true);
-            setPreparingItem(null);
             return;
           }
           throw new Error(data.error || "Video stream unavailable");
@@ -2138,8 +2428,13 @@ export default function App() {
         setVideoWatch({ item: {...item, embedUrl: source}, epIdx });
         setPreparingItem(null);
         return;
-      } catch (e) { console.error("Movie stream resolution failed", e); }
+      } catch (e) { 
+        console.error("Movie stream resolution failed", e);
+        setPreparingItem(null); // Clear preparing screen on error
+        return; // Don't fall through to fallback player initialization
+      }
     }
+    
     if (item.type === "series" && item.sourceId) {
       try {
         const r = await fetch(`/api/reelplexi/series/${encodeURIComponent(item.sourceId)}/episodes?season=1`, {cache:"force-cache"});
@@ -2158,8 +2453,14 @@ export default function App() {
           setPreparingItem(null);
           return;
         }
-      } catch (e) { console.error("Series stream resolution failed", e); }
+      } catch (e) { 
+        console.error("Series stream resolution failed", e);
+        setPreparingItem(null); // Clear preparing screen on error
+        return; // Don't fall through to fallback player initialization
+      }
     }
+    
+    // Fallback: only reach here if item doesn't have sourceId
     setVideoWatch({ item, epIdx });
     setPreparingItem(null);
   }), [requireAuth, isPremium, freeAllowance]);
@@ -2181,19 +2482,53 @@ export default function App() {
     setUser({ name:"Kilax Viewer", email:"viewer@kilaxmovies.com", phone:"+256 780 846 800", joinDate:new Date().toLocaleDateString("en-US",{year:"numeric",month:"long",day:"numeric"}), avatar:DEFAULT_AVATAR.emoji, avatarBg:DEFAULT_AVATAR.bg });
   };
 
+  const openDetailRoute = useCallback((item: MediaItem) => {
+    setModal(null);
+    setSeriesDetail(null);
+
+    const target = item.type === "movie"
+      ? `/movies/${encodeURIComponent(String(item.sourceId || item.id))}`
+      : "/?page=series";
+
+    if (item.type === "movie") {
+      setModal(item);
+    } else {
+      setSeriesDetail(item);
+    }
+
+    if (item.type === "movie") {
+      if (window.location.pathname !== target) {
+        router.push(target, { scroll: false });
+      }
+    } else {
+      // Series: stay on /?page=series, no ID in URL
+      if (`${window.location.pathname}${window.location.search}` !== target) {
+        router.push(target, { scroll: false });
+      }
+    }
+  }, [router]);
+
   const handleViewSeries = (item:MediaItem) => {
     setModal(null);
     setSeriesDetail(item);
-    const seriesId = encodeURIComponent(item.sourceId || String(item.id));
-    window.history.pushState({}, "", `/series/${seriesId}`);
-  };
-  const closeSeriesDetail = () => {
-    setSeriesDetail(null);
-    if (window.location.pathname.startsWith("/series/")) {
-      window.history.pushState({}, "", "/");
-      window.dispatchEvent(new PopStateEvent("popstate"));
+
+    // Keep the URL clean — no series ID exposed in the address bar
+    if (window.location.search !== "?page=series") {
+      router.push("/?page=series", { scroll: false });
     }
   };
+
+  useEffect(() => {
+    syncSeriesDetailFromUrl();
+    syncMovieDetailFromUrl();
+    const onPop = () => {
+      syncSeriesDetailFromUrl();
+      syncMovieDetailFromUrl();
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [syncSeriesDetailFromUrl, syncMovieDetailFromUrl]);
+
   useEffect(()=>{ const f=()=>setSearchOpen(true); const sub=()=>updatePage("subscription"); window.addEventListener("kilax-open-search",f); window.addEventListener("kilax-open-subscription",sub); return()=>{window.removeEventListener("kilax-open-search",f);window.removeEventListener("kilax-open-subscription",sub)}}, [updatePage]);
 
   if (catalogError) return <div style={{ minHeight:"100vh", background:BG, color:"white", display:"grid", placeItems:"center", padding:24, textAlign:"center", fontFamily:"'DM Sans',sans-serif" }}><div><h1 style={{fontSize:22,marginBottom:10}}>Kilax Movies</h1><p style={{color:"#94a3b8",maxWidth:520}}>{catalogError}</p></div></div>;
@@ -2215,7 +2550,6 @@ export default function App() {
             setVideoWatch(null);
             if (videoWatch.item.type === "series") {
               setSeriesDetail(videoWatch.item);
-              window.history.pushState({}, "", `/series/${encodeURIComponent(videoWatch.item.sourceId || String(videoWatch.item.id))}`);
             } else {
               setModal(videoWatch.item);
             }
@@ -2229,7 +2563,12 @@ export default function App() {
       {seriesDetail && (
         <SeriesDetailPage
           series={seriesDetail}
-          onClose={closeSeriesDetail}
+          onClose={() => {
+            setSeriesDetail(null);
+            if (window.location.search !== "?page=series" || window.location.pathname !== "/") {
+              router.push("/?page=series", { scroll: false });
+            }
+          }}
           onWatch={epIdx=>handlePlay(seriesDetail, epIdx)}
         />
       )}
@@ -2262,11 +2601,11 @@ export default function App() {
         {page==="getapp"       && <GetAppPage />}
       </div>
 
-      {searchOpen   && <SearchOverlay      onClose={()=>setSearchOpen(false)} onOpen={m=>{ setModal(m); setSearchOpen(false); }} />}
+      {searchOpen   && <SearchOverlay      onClose={()=>setSearchOpen(false)} onOpen={m=>{ openDetailRoute(m); setSearchOpen(false); }} />}
       {notifOpen    && <NotificationsPanel onClose={()=>setNotifOpen(false)} notifs={notifications} onRead={markNotificationRead} />}
       {modal        && <DetailModal        item={modal} myList={myList} onToggleList={toggleList} onClose={()=>setModal(null)} onPlay={handlePlay} onViewSeries={handleViewSeries} />}
       {paywallItem  && <PremiumPaywall     item={paywallItem} onClose={()=>setPaywall(null)} onUpgrade={()=>{ setPaywall(null); updatePage("subscription"); }} />}
-      {freeLimitReached && <FreeAllowanceLimitModal onClose={()=>setFreeLimitReached(false)} onUpgrade={()=>{ setFreeLimitReached(false); updatePage("subscription"); }} />}
+      {freeLimitReached && <FreeAllowanceLimitModal onClose={()=>setFreeLimitReached(false)} onUpgrade={()=>{ setFreeLimitReached(false); updatePage("subscription"); }} resetAt={freeAllowance?.resetAt} />}
       {authModal    && <AuthModal          initialMode={authModal} onSuccess={handleAuthSuccess} onClose={()=>setAuthModal(null)} />}
       {phoneRequired && isLoggedIn && <PhoneRequiredModal onSaved={(phone)=>{setUser(u=>({...u,phone}));setPhoneRequired(false)}} />}
 

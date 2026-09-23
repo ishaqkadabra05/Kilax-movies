@@ -1,4 +1,4 @@
-export const MIN_PASSWORD_LENGTH = 6
+export const MIN_PASSWORD_LENGTH = 4
 
 export function isValidEmail(value: string): boolean {
   const email = value.trim()

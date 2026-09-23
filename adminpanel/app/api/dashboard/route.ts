@@ -3,6 +3,7 @@ import { requireAdmin } from "@/lib/supabase/auth";
 import { createLegacyUserDb, createUserDb } from "@/lib/supabase/user-db";
 import { reelplexiFetch } from "@/lib/reelplexi";
 import { withCache } from "@/lib/cache";
+import { syncNewReelplexContentNotifications } from "@/lib/reelplex-content-notifications";
 
 // Reelplexi content counts — cache for 5 minutes (counts change rarely)
 const REELPLEXI_TTL = 5 * 60;
@@ -89,6 +90,13 @@ async function loadActiveUserStats(db: ReturnType<typeof createUserDb>) {
 export async function GET(request: NextRequest) {
   try {
     await requireAdmin(request);
+
+    try {
+      await syncNewReelplexContentNotifications();
+    } catch (error) {
+      console.error("[dashboard] ReelPlex content notification sync failed:", error);
+    }
+
     const db = createUserDb();
     const legacyDb = createLegacyUserDb();
 

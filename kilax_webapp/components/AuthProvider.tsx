@@ -32,15 +32,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      // Add timeout to prevent hanging
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Subscription check timeout')), 5000)
-      )
-
-      const hasActivePaidSubscription = await Promise.race([
-        userHasActivePaidSubscription(currentUser.id),
-        timeoutPromise,
-      ]) as boolean
+      const hasActivePaidSubscription = await userHasActivePaidSubscription(currentUser.id)
 
       console.log('Premium status check:', {
         hasActivePaidSubscription,
@@ -49,7 +41,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsPremium(hasActivePaidSubscription)
     } catch (error) {
       console.error('Error checking premium status:', error)
-      // Don't let subscription errors block the auth flow
       setIsPremium(false)
     }
   }

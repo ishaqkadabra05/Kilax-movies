@@ -68,6 +68,13 @@ function isAllowedVideoUrl(urlString: string): boolean {
     return false;
   }
 }
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+  'Access-Control-Allow-Headers': 'Range, Authorization, Content-Type',
+  'Access-Control-Max-Age': '86400',
+};
+
 export async function GET(request: NextRequest) {
   try {
     // Apply protection middleware
@@ -142,7 +149,8 @@ export async function GET(request: NextRequest) {
       'Content-Type': contentType,
       'Cache-Control': 'public, max-age=3600',
       'Cross-Origin-Resource-Policy': 'same-origin',
-      'X-Content-Type-Options': 'nosniff'
+      'X-Content-Type-Options': 'nosniff',
+      ...CORS_HEADERS,
     });
 
     // Set proper filename for downloads
@@ -189,5 +197,8 @@ export async function HEAD(request: NextRequest) {
 
 // Handle OPTIONS for CORS
 export async function OPTIONS() {
-  return new NextResponse(null, { status: 204 });
+  return new NextResponse(null, {
+    status: 204,
+    headers: CORS_HEADERS,
+  });
 }

@@ -1,14 +1,18 @@
 import { useEffect, useState } from 'react'
 
 export function useResponsive() {
-  const [width, setWidth] = useState(
-    typeof window === 'undefined' ? 1200 : window.innerWidth,
-  )
+  // Always start with the SSR-safe default so the server and the first
+  // client render produce identical HTML (no hydration mismatch).
+  // The real window width is read in useEffect, which only runs on the
+  // client after hydration is complete.
+  const [width, setWidth] = useState(1200)
 
   useEffect(() => {
-    const handleResize = () => setWidth(window.innerWidth)
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
+    // Sync to actual viewport immediately after mount, then track resizes.
+    const update = () => setWidth(window.innerWidth)
+    update()
+    window.addEventListener('resize', update)
+    return () => window.removeEventListener('resize', update)
   }, [])
 
   return {

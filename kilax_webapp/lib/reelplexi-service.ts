@@ -11,6 +11,7 @@ const TTL_TREND   = 120   // 2 min  — trending rows
 
 export interface ReelplexiMovie {
   id: string
+  type?: 'movie' | 'series'
   title: string
   name?: string
   overview?: string
@@ -647,16 +648,77 @@ class ReelplexiService {
     }, TTL_TREND)
   }
 
-  static async searchAll(query: string, page = 1, perPage = 50): Promise<Array<ReelplexiMovie | ReelplexiSeries>> {
-    return cache.getOrSet(`search:all:${query}:p${page}:n${perPage}`, async () => {
+  private static async fetchSearchResultsAcrossPages<T>(path: string, query: string, perPage = 100, maxPages = 8): Promise<T[]> {
+    const normalizedPerPage = Math.min(100, Math.max(20, perPage))
+    const rows: T[] = []
+
+    for (let page = 1; page <= maxPages; page += 1) {
       try {
-        const response = await this.getJson('/v1/search', {
+        const response = await this.getJson(path, {
           q: query,
           page: page.toString(),
-          per_page: perPage.toString(),
+          per_page: normalizedPerPage.toString(),
         })
-        const data = Array.isArray(response.data) ? response.data : []
-        return data.map((item: any) => this.normalizeMixedContent(item))
+
+        const payload = Array.isArray(response.data)
+          ? response.data
+          : Array.isArray(response.results)
+            ? response.results
+            : Array.isArray(response.items)
+              ? response.items
+              : []
+
+        if (!payload.length) break
+
+        rows.push(...payload)
+
+        const totalPages = Number(response.pagination?.total_pages ?? response.total_pages ?? response.pages ?? 0)
+        if (totalPages > 0 && page >= totalPages) break
+        if (payload.length < normalizedPerPage) break
+      } catch {
+        break
+      }
+    }
+
+    return rows
+  }
+
+  static async searchAll(query: string, page = 1, perPage = 50): Promise<Array<ReelplexiMovie | ReelplexiSeries>> {
+    const searchKey = `search:all:${query}:p${page}:n${perPage}`
+    return cache.getOrSet(searchKey, async () => {
+      const normalizedQuery = query.trim()
+      if (!normalizedQuery) return []
+
+      try {
+        const allRows = await this.fetchSearchResultsAcrossPages('/v1/search', normalizedQuery, Math.min(100, Math.max(perPage, 20)), 8)
+        const normalized = allRows.map((item: any) => this.normalizeMixedContent(item))
+
+        if (normalized.length > 0) {
+          const seen = new Map<string, ReelplexiMovie | ReelplexiSeries>()
+          for (const item of normalized) {
+            const key = `${item.type || 'movie'}-${item.id}`
+            if (!seen.has(key)) seen.set(key, item)
+          }
+          return Array.from(seen.values())
+        }
+
+        const [movieRows, seriesRows] = await Promise.all([
+          this.fetchSearchResultsAcrossPages('/v1/movies/search', normalizedQuery, Math.min(100, Math.max(perPage, 20)), 8),
+          this.fetchSearchResultsAcrossPages('/v1/series/search', normalizedQuery, Math.min(100, Math.max(perPage, 20)), 8),
+        ])
+
+        const fallback = [
+          ...movieRows.map((item: any) => this.normalizeMovie(item)),
+          ...seriesRows.map((item: any) => this.normalizeSeries(item)),
+        ]
+
+        const deduped = new Map<string, ReelplexiMovie | ReelplexiSeries>()
+        for (const item of fallback) {
+          const key = `${item.type || 'movie'}-${item.id}`
+          if (!deduped.has(key)) deduped.set(key, item)
+        }
+
+        return Array.from(deduped.values())
       } catch {
         return []
       }
@@ -664,15 +726,19 @@ class ReelplexiService {
   }
 
   static async searchMovies(query: string, page = 1, perPage = 50): Promise<ReelplexiMovie[]> {
-    return cache.getOrSet(`search:movies:${query}:p${page}:n${perPage}`, async () => {
+    const searchKey = `search:movies:${query}:p${page}:n${perPage}`
+    return cache.getOrSet(searchKey, async () => {
+      const normalizedQuery = query.trim()
+      if (!normalizedQuery) return []
+
       try {
-        const response = await this.getJson('/v1/movies/search', {
-          q: query,
-          page: page.toString(),
-          per_page: perPage.toString(),
-        })
-        const data = Array.isArray(response.data) ? response.data : []
-        return data.map((item: any) => this.normalizeMovie(item))
+        const rows = await this.fetchSearchResultsAcrossPages('/v1/movies/search', normalizedQuery, Math.min(100, Math.max(perPage, 20)), 8)
+        const deduped = new Map<string, ReelplexiMovie>()
+        for (const item of rows.map((row: any) => this.normalizeMovie(row))) {
+          const key = `movie-${item.id}`
+          if (!deduped.has(key)) deduped.set(key, item)
+        }
+        return Array.from(deduped.values())
       } catch {
         return []
       }
@@ -680,15 +746,19 @@ class ReelplexiService {
   }
 
   static async searchSeries(query: string, page = 1, perPage = 50): Promise<ReelplexiSeries[]> {
-    return cache.getOrSet(`search:series:${query}:p${page}:n${perPage}`, async () => {
+    const searchKey = `search:series:${query}:p${page}:n${perPage}`
+    return cache.getOrSet(searchKey, async () => {
+      const normalizedQuery = query.trim()
+      if (!normalizedQuery) return []
+
       try {
-        const response = await this.getJson('/v1/series/search', {
-          q: query,
-          page: page.toString(),
-          per_page: perPage.toString(),
-        })
-        const data = Array.isArray(response.data) ? response.data : []
-        return data.map((item: any) => this.normalizeSeries(item))
+        const rows = await this.fetchSearchResultsAcrossPages('/v1/series/search', normalizedQuery, Math.min(100, Math.max(perPage, 20)), 8)
+        const deduped = new Map<string, ReelplexiSeries>()
+        for (const item of rows.map((row: any) => this.normalizeSeries(row))) {
+          const key = `series-${item.id}`
+          if (!deduped.has(key)) deduped.set(key, item)
+        }
+        return Array.from(deduped.values())
       } catch {
         return []
       }

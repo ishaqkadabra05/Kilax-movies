@@ -73,7 +73,7 @@ export function isDirectMediaSource(url: string): boolean {
   // Forces direct playback for signed/pre-signed URLs and CDN media sources.
   const hasSignedQuery = /(?:[?&](?:X-Amz-|X-Goog-|token=|Signature=|sig=|key=|Expires=|AWSAccessKeyId=)|(?:X-Amz-|X-Goog-))/i.test(trimmed)
   if (hasSignedQuery) {
-    return true
+    return false
   }
 
   try {
@@ -99,8 +99,9 @@ export function normalizeVideoUrl(url: string): string {
     return url
   }
 
-  // Signed cloud URLs (Wasabi/S3/pre-signed) should be played directly.
-  // The proxy often rejects these URLs with 403 even though the signed URL itself is valid.
+  // Prefetched signed cloud URLs (Wasabi/S3/pre-signed) are usually blocked by
+  // browser CORS policy when accessed directly from localhost. Proxy them to our
+  // server so the signed URL is fetched server-side and the browser keeps a same-origin stream.
   if (isDirectMediaSource(url)) {
     return url
   }
@@ -108,6 +109,13 @@ export function normalizeVideoUrl(url: string): string {
   let fullUrl = url
   if (!url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('/')) {
     fullUrl = `https://${url}`
+  }
+
+  // Any signed media URL with authenticated query params must be proxied. A direct
+  // access from the browser will often fail with CORS/ERR_FAILED on presigned URLs.
+  const signedQuery = /(?:[?&](?:X-Amz-|X-Goog-|token=|Signature=|sig=|key=|Expires=|AWSAccessKeyId=))/i.test(fullUrl)
+  if (signedQuery) {
+    return `/api/stream?url=${encodeURIComponent(fullUrl)}`
   }
 
   // Proxy through /api/stream to handle CORS and authentication

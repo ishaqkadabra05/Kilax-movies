@@ -103,7 +103,7 @@ export function checkReferrer(
 ): boolean {
   // Allow development environment
   if (process.env.NODE_ENV === 'development') {
-    if (!referrer) return true;
+    return true;
   }
 
   // If no referrer present (e.g. browser video tag range requests)

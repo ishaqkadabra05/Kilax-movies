@@ -36,29 +36,11 @@ export async function userHasActivePaidSubscription(userId: string): Promise<boo
       if (isPaidProfile) return true
     }
 
-    const { data: subscriptions, error: subscriptionsError } = await subscriptionDb
-      .from('subscriptions')
-      .select('status, subscription_type, expiry_date, plan, plan_id, start_date, subscribed_at, created_at')
-      .eq('user_id', userId)
-
-    if (subscriptionsError) {
-      return false
-    }
-
-    return (subscriptions || []).some((row: any) => {
-      const status = String(row?.status || '').trim().toLowerCase()
-      const type = String(row?.subscription_type || row?.plan || row?.plan_id || '').trim().toLowerCase()
-      const expiry = row?.expiry_date ? new Date(row.expiry_date).getTime() : 0
-      const fallbackExpiry = row?.start_date || row?.subscribed_at || row?.created_at
-        ? new Date(row.start_date || row.subscribed_at || row.created_at).getTime() + (30 * 24 * 60 * 60 * 1000)
-        : 0
-      const validExpiry = expiry > now || (fallbackExpiry > now && !['free', 'trial'].includes(type))
-      const activeStatus = ['active', 'paid', 'completed', 'success', 'successful', 'approved', 'processing'].includes(status)
-      const paidType = Boolean(type) && !['free', 'trial', 'none', ''].includes(type) && !type.includes('free') && !type.includes('trial')
-      const legacyPlan = Boolean(row?.plan) && !['free', 'trial', 'none', ''].includes(String(row.plan).trim().toLowerCase())
-
-      return validExpiry && (activeStatus || paidType || legacyPlan)
-    })
+    // Avoid querying the subscriptions table from the anon client. Some projects
+    // do not expose that table through RLS and it triggers noisy 400s in the browser.
+    // The app already keeps premium state in the profiles row and the client should
+    // not treat a subscriptions-table 400 as a fatal auth problem.
+    return false
   } catch (error) {
     console.error('Error checking active paid subscription:', error)
     return false

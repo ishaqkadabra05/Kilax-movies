@@ -30,6 +30,7 @@ export default function HomeVideoPlayer({
 }: HomeVideoPlayerProps) {
   const [episodeIndex, setEpisodeIndex] = useState(initialEpisodeIndex)
   const [playerReady, setPlayerReady] = useState(false)
+  const [hasError, setHasError] = useState(false)
   const nextEpisode = episodes?.[episodeIndex + 1]
   const currentEpisode = episodes?.[episodeIndex]
   const rawSource = currentEpisode?.videoUrl || item.embedUrl || ''
@@ -42,6 +43,7 @@ export default function HomeVideoPlayer({
 
   useEffect(() => {
     setPlayerReady(false)
+    setHasError(false)
   }, [source])
 
   useEffect(() => {
@@ -52,8 +54,15 @@ export default function HomeVideoPlayer({
 
   const markPlayerReady = useCallback(() => {
     setPlayerReady(true)
+    setHasError(false)
     onReady?.()
   }, [onReady])
+
+  const markPlayerError = useCallback((error: any) => {
+    console.error('Player error:', error)
+    setPlayerReady(true) // Clear loading state so error is visible
+    setHasError(true)
+  }, [])
 
   const playerEpisodes: EpisodeWithSeason[] = useMemo(() => (episodes || []).map((episode, index) => ({
     id: `kilax-${item.id}-${index}`,
@@ -114,6 +123,7 @@ export default function HomeVideoPlayer({
                 className="w-full"
                 onEnded={handleEnded}
                 onLoad={markPlayerReady}
+                onError={markPlayerError}
                 maxWatchSeconds={freeLimitSeconds}
                 onLimitReached={onLimitReached}
                 episodes={item.type === 'series' ? playerEpisodes : []}

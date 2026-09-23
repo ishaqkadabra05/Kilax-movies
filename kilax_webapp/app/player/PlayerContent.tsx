@@ -764,7 +764,6 @@ export default function PlayerContent() {
           currentEpisodeIndex={currentEpisodeIndex}
           onEpisodeSelect={handleEpisodeSelect}
           contentType={contentType || undefined}
-          userId={user?.id}
         />
       </div>
 
