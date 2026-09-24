@@ -70,6 +70,11 @@ export function isDirectMediaSource(url: string): boolean {
     return true
   }
 
+  const hasPlaylistOrManifest = /\.(m3u8|mpd)(?:$|[?#])/i.test(trimmed) || /\/(manifest|playlist)(?:$|[?#])/i.test(trimmed)
+  if (hasPlaylistOrManifest) {
+    return true
+  }
+
   // Forces direct playback for signed/pre-signed URLs and CDN media sources.
   const hasSignedQuery = /(?:[?&](?:X-Amz-|X-Goog-|token=|Signature=|sig=|key=|Expires=|AWSAccessKeyId=)|(?:X-Amz-|X-Goog-))/i.test(trimmed)
   if (hasSignedQuery) {
@@ -85,7 +90,7 @@ export function isDirectMediaSource(url: string): boolean {
     const hostname = parsed.hostname.toLowerCase()
     const pathname = parsed.pathname.toLowerCase()
     const isCloudPresignHost = /(wasabisys\.com|amazonaws\.com|cloudfront\.net|googleapis\.com|storage\.googleapis\.com|fastly\.net|azureedge\.net|b-cdn\.net)/i.test(hostname)
-    const isStreamAsset = /\.(m3u8|mpd|mp4|m4v|webm|mov|m4s|ts|flv)(?:$|\?)/i.test(pathname) || /\/manifest|\/playlist/i.test(pathname)
+    const isStreamAsset = /\.(mp4|m4v|webm|mov|m4s|ts|flv)(?:$|\?)/i.test(pathname)
 
     return isCloudPresignHost && isStreamAsset
   } catch {
@@ -96,6 +101,14 @@ export function isDirectMediaSource(url: string): boolean {
 // Video URL processing functions - proxy through API to handle CORS
 export function normalizeVideoUrl(url: string): string {
   if (!url || url === "#") {
+    return url
+  }
+
+  // HLS/DASH manifest URLs are best played directly by the browser. Routing them
+  // through /api/stream adds an extra hop for every playlist/segment request and
+  // often causes repeated buffering and stall loops.
+  const isManifest = /\.(m3u8|mpd)(?:$|[?#])/i.test(url) || /\/(manifest|playlist)(?:$|[?#])/i.test(url)
+  if (isManifest) {
     return url
   }
 

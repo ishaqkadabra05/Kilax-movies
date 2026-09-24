@@ -13,7 +13,16 @@ declare global {
   }
 }
 
-const SITE_KEY = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY ?? "";
+const SITE_KEY = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY?.trim() ?? "";
+
+function isAllowedRecaptchaHost(): boolean {
+  if (typeof window === "undefined") return false;
+
+  const host = window.location.hostname.toLowerCase();
+  const allowed = ["localhost", "127.0.0.1", "kilaxmovies.com", "www.kilaxmovies.com"];
+
+  return allowed.includes(host) || host.endsWith(".kilaxmovies.com");
+}
 
 /**
  * Mount once anywhere in the tree to load the Enterprise JS.
@@ -21,7 +30,7 @@ const SITE_KEY = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY ?? "";
  */
 export default function RecaptchaGuard() {
   useEffect(() => {
-    if (!SITE_KEY) return;
+    if (!SITE_KEY || !isAllowedRecaptchaHost()) return;
     if (document.querySelector('script[data-kilax-recaptcha]')) return;
 
     const s = document.createElement("script");
@@ -29,6 +38,10 @@ export default function RecaptchaGuard() {
     s.async = true;
     s.defer = true;
     s.dataset.kilaxRecaptcha = "1";
+    s.onerror = () => {
+      console.warn("[reCAPTCHA] Failed to load Google Enterprise script. Check the site key and allowed domains.");
+      s.remove();
+    };
     document.head.appendChild(s);
   }, []);
 
@@ -47,7 +60,11 @@ export default function RecaptchaGuard() {
  *   if (!token) { ... handle gracefully ... }
  */
 export async function getRecaptchaToken(action: string): Promise<string | null> {
-  if (!SITE_KEY) return null;
+  if (!SITE_KEY || !isAllowedRecaptchaHost()) return null;
+  if (!window.grecaptcha?.enterprise) {
+    console.warn("[reCAPTCHA] Enterprise script is not available on this page.");
+    return null;
+  }
 
   // Wait up to 5 s for the script to become ready
   const ready = await new Promise<boolean>((resolve) => {

@@ -4,6 +4,11 @@ import { sendOneSignalNotification } from "@/lib/onesignal";
 
 export type ReelplexContentType = "movie" | "series";
 
+function isMissingTableError(error: any) {
+  const message = String(error?.message ?? error ?? "");
+  return /could not find the table .*reelplex_notification_state|schema cache|does not exist/i.test(message);
+}
+
 interface ReelplexContentItem {
   id: string;
   title: string;
@@ -59,11 +64,20 @@ export async function syncNewReelplexContentNotifications() {
 
   for (const [index, items] of results.entries()) {
     const type: ReelplexContentType = index === 0 ? "movie" : "series";
-    const { data: lastState } = await db
+    const { data: lastState, error: stateError } = await db
       .from("reelplex_notification_state")
       .select("last_content_id")
       .eq("content_type", type)
       .maybeSingle();
+
+    if (stateError && isMissingTableError(stateError)) {
+      console.warn(`[reelplex] Skipping ${type} notification sync because the main project schema has not created reelplex_notification_state yet.`);
+      return {
+        movies: results[0]?.length ?? 0,
+        series: results[1]?.length ?? 0,
+        notificationsSent: 0,
+      };
+    }
 
     const lastContentId = lastState?.last_content_id ? String(lastState.last_content_id) : "";
     const newContent = (() => {
@@ -112,6 +126,14 @@ export async function syncNewReelplexContentNotifications() {
         );
 
       if (error) {
+        if (isMissingTableError(error)) {
+          console.warn(`[reelplex] Skipping ${type} notification persistence because the main project schema has not created reelplex_notification_state yet.`);
+          return {
+            movies: results[0]?.length ?? 0,
+            series: results[1]?.length ?? 0,
+            notificationsSent: totalNotifications,
+          };
+        }
         console.error(`[reelplex] Failed to persist ${type} notification state:`, error.message);
       }
     }

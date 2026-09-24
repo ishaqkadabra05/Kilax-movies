@@ -225,8 +225,7 @@ function ArtPlayerCore({
   useEffect(() => {
     const restoreSavedPositionIfNeeded = () => {
       const video = playerRef.current?.video
-      if (!video) return
-      if (video.currentTime > 3) return
+      if (!video || video.seeking || (!video.paused && !video.ended) || video.currentTime > 3) return
       try {
         const saved = Number(localStorage.getItem(`kilax-resume:${resolvedUrl}`) || 0)
         const duration = Number.isFinite(video.duration) ? video.duration : 0
@@ -238,7 +237,7 @@ function ArtPlayerCore({
 
     const handlePageExit = () => {
       const video = playerRef.current?.video
-      if (!video || video.paused || video.ended) return
+      if (!video || video.paused || video.ended || video.seeking) return
       const resumeKey = `kilax-resume:${resolvedUrl}`
       try { localStorage.setItem(resumeKey, String(Math.floor(video.currentTime))) } catch { /* storage is optional */ }
       if (document.pictureInPictureElement || !document.pictureInPictureEnabled) {
@@ -758,7 +757,7 @@ function NativeHLSPlayer({
   useEffect(() => {
     const handlePageExit = () => {
       const video = videoRef.current
-      if (!video || video.paused || video.ended) return
+      if (!video || video.paused || video.ended || video.seeking) return
       const resumeKey = `kilax-resume:${url}`
       try { localStorage.setItem(resumeKey, String(Math.floor(video.currentTime))) } catch { /* storage is optional */ }
       if (document.pictureInPictureElement || !document.pictureInPictureEnabled) {
@@ -769,7 +768,7 @@ function NativeHLSPlayer({
     }
     const handleReturn = () => {
       const video = videoRef.current
-      if (!video || video.currentTime > 3) return
+      if (!video || video.seeking || (!video.paused && !video.ended) || video.currentTime > 3) return
       try {
         const saved = Number(localStorage.getItem(`kilax-resume:${url}`) || 0)
         const duration = Number.isFinite(video.duration) ? video.duration : 0
