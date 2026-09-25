@@ -470,33 +470,76 @@ function SeriesDetailPage({ series, onClose, onWatch }: { series:MediaItem; onCl
 
   return (
     <div style={{ position:"fixed", inset:0, zIndex:70, background:BG, overflowY:"auto", paddingTop:`env(safe-area-inset-top,0px)` }}>
-      <div style={{ position:"relative", height:mobile?"42vh":"52vh", minHeight:300, overflow:"hidden" }}>
+      <div style={{ position:"relative", height:mobile?"42vh":tablet?"48vh":"60vh", minHeight:300, overflow:"hidden" }}>
         <img src={series.heroImage||series.image} alt={series.title} style={{ width:"100%", height:"100%", objectFit:"cover" }} />
-        <div style={{ position:"absolute", inset:0, background:"linear-gradient(to right,rgba(13,17,23,0.97) 0%,rgba(13,17,23,0.55) 55%,rgba(13,17,23,0.08) 100%)" }} />
-        <div style={{ position:"absolute", inset:0, background:"linear-gradient(to top,#0d1117 0%,transparent 50%)" }} />
-        <button onClick={onClose} style={{ position:"absolute", top:mobile?16:24, left:mobile?16:48, background:"rgba(13,17,23,0.72)", backdropFilter:"blur(12px)", border:"1px solid rgba(255,255,255,0.12)", color:"white", borderRadius:10, padding:"9px 18px", fontSize:13, cursor:"pointer", display:"flex", alignItems:"center", gap:8, fontFamily:"'DM Sans',sans-serif" }}>← Back</button>
-        <div style={{ position:"absolute", bottom:mobile?20:36, left:mobile?16:48, right:mobile?16:48, maxWidth:560 }}>
-          <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:12 }}>
-            <span style={{ background:"rgba(59,130,246,0.88)", color:"#fff", fontSize:9, fontWeight:800, padding:"3px 10px", borderRadius:6 }}>SERIES</span>
-            
-            <StarRating score={seriesScore} /><span style={{color:"#94a3b8",fontSize:12}}>{seriesYear}</span>
-          </div>
-          <h1 style={{ fontFamily:"'Anton',sans-serif", fontSize:mobile?30:48, color:"white", lineHeight:0.95, marginBottom:14, letterSpacing:"0.01em" }}>{series.title}</h1>
-          <div style={{ display:"flex", gap:14, flexWrap:"wrap", marginBottom:14, fontSize:13, alignItems:"center" }}>
+        <div style={{ position:"absolute", inset:0, background:mobile?"linear-gradient(to bottom,rgba(13,17,23,0.3) 0%,rgba(13,17,23,0.92) 70%,#0d1117 100%)":"linear-gradient(to right,rgba(13,17,23,0.98) 0%,rgba(13,17,23,0.85) 40%,rgba(13,17,23,0.35) 70%,transparent 100%)" }} />
+        <button onClick={onClose} style={{ position:"absolute", top:mobile?16:24, left:mobile?16:48, background:"rgba(13,17,23,0.72)", backdropFilter:"blur(12px)", border:"1px solid rgba(255,255,255,0.12)", color:"white", borderRadius:10, padding:"9px 18px", fontSize:13, cursor:"pointer", display:"flex", alignItems:"center", gap:8, fontFamily:"'DM Sans',sans-serif", zIndex:2 }}>← Back</button>
+        <div style={{ position:"absolute", bottom:mobile?20:tablet?32:48, left:mobile?16:tablet?32:64, right:mobile?16:tablet?32:"50%", display:"flex", flexDirection:"column", gap:mobile?10:14, maxWidth:mobile?"100%":tablet?600:720 }}>
+          <div style={{ display:"flex", gap:10, flexWrap:"wrap", alignItems:"center" }}>
+            <span style={{ background:"rgba(59,130,246,0.88)", color:"#fff", fontSize:mobile?9:10, fontWeight:800, padding:mobile?"3px 10px":"4px 12px", borderRadius:6, letterSpacing:"0.05em" }}>SERIES</span>
             <StarRating score={seriesScore} />
-            <span style={{ color:"#94a3b8" }}>{seriesYear}</span>
-            <span style={{ color:"#94a3b8" }}>{series.seasons} Season{series.seasons!==1?"s":""}</span>
-            <span style={{ color:"#94a3b8" }}>{series.episodes} Episodes</span>
+            <span style={{color:"#cbd5e1",fontSize:mobile?12:13}}>{seriesYear}</span>
           </div>
-          <p style={{ color:"#94a3b8", fontSize:13, lineHeight:1.72, marginBottom:10 }} className="clamp-2">{seriesStory}</p>
-          <p style={{ color:ORANGE, fontSize:12, fontWeight:600, marginBottom:16 }}>VJ: {vjName}</p>
-          <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:16 }}>
-            {genres.map((genre) => <span key={genre} style={{ color:"#bfdbfe", background:"rgba(59,130,246,.14)", border:"1px solid rgba(96,165,250,.25)", borderRadius:999, padding:"4px 9px", fontSize:11 }}>{genre}</span>)}
+          
+          <h1 style={{ 
+            fontFamily:"'Anton',sans-serif", 
+            fontSize:mobile?32:tablet?48:64, 
+            color:"white", 
+            lineHeight:1, 
+            margin:0,
+            letterSpacing:"-0.02em",
+            textShadow:"0 2px 12px rgba(0,0,0,0.5)",
+            wordBreak:"break-word",
+            overflow:"visible"
+          }}>{series.title}</h1>
+          
+          <div style={{ display:"flex", gap:mobile?10:16, flexWrap:"wrap", fontSize:mobile?12:14, alignItems:"center" }}>
+            <span style={{ color:"#cbd5e1", display:"flex", alignItems:"center", gap:6 }}>
+              <span style={{fontSize:16}}>📅</span> {seriesYear}
+            </span>
+            <span style={{ color:"#cbd5e1" }}>•</span>
+            <span style={{ color:"#cbd5e1" }}>{series.seasons} Season{series.seasons!==1?"s":""}</span>
+            <span style={{ color:"#cbd5e1" }}>•</span>
+            <span style={{ color:"#cbd5e1" }}>{series.episodes} Episodes</span>
           </div>
-              <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-                <PrimaryBtn onClick={()=>onWatch(0)} style={{ fontSize:13, padding:"10px 22px" }}>Play from Start</PrimaryBtn>
-                <TrailerButton item={series} style={{ background:"rgba(255,255,255,.08)", border:"1px solid rgba(255,255,255,.16)", color:"white", borderRadius:12, padding:"10px 18px", fontSize:13, fontWeight:700, display:"flex", alignItems:"center", gap:7 }} />
-              </div>
+          
+          <p style={{ 
+            color:"#cbd5e1", 
+            fontSize:mobile?13:15, 
+            lineHeight:1.6, 
+            margin:0,
+            maxWidth:mobile?"100%":tablet?540:640,
+            display:"-webkit-box",
+            WebkitLineClamp:mobile?2:3,
+            WebkitBoxOrient:"vertical",
+            overflow:"hidden",
+            textShadow:"0 1px 3px rgba(0,0,0,0.5)"
+          }}>{seriesStory}</p>
+          
+          <p style={{ color:ORANGE, fontSize:mobile?11:13, fontWeight:600, margin:0, display:"flex", alignItems:"center", gap:6 }}>
+            <span>🎬</span> VJ: {vjName}
+          </p>
+          
+          <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+            {genres.map((genre) => (
+              <span key={genre} style={{ 
+                color:"#bfdbfe", 
+                background:"rgba(59,130,246,.14)", 
+                border:"1px solid rgba(96,165,250,.25)", 
+                borderRadius:999, 
+                padding:mobile?"3px 8px":"4px 12px", 
+                fontSize:mobile?10:11,
+                fontWeight:600
+              }}>{genre}</span>
+            ))}
+          </div>
+          
+          <div style={{ display:"flex", gap:10, flexWrap:"wrap", marginTop:mobile?4:8 }}>
+            <PrimaryBtn onClick={()=>onWatch(0)} style={{ fontSize:mobile?12:14, padding:mobile?"10px 20px":"12px 28px", boxShadow:"0 4px 12px rgba(59,130,246,0.4)" }}>
+              <span style={{marginRight:6}}>▶</span> Play from Start
+            </PrimaryBtn>
+            <TrailerButton item={series} style={{ background:"rgba(255,255,255,.08)", border:"1px solid rgba(255,255,255,.16)", color:"white", borderRadius:12, padding:mobile?"10px 16px":"12px 22px", fontSize:mobile?12:14, fontWeight:700, display:"flex", alignItems:"center", gap:8, backdropFilter:"blur(8px)" }} />
+          </div>
         </div>
       </div>
 

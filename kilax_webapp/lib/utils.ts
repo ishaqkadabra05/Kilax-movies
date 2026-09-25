@@ -65,8 +65,15 @@ export function isDirectMediaSource(url: string): boolean {
 
   const trimmed = url.trim()
 
+  // Reelplexi stream proxy URLs already contain a signed JWT token and must be used
+  // directly. Re-proxying them through /api/stream causes the provider to reject the
+  // request with 402/Permission blocked even for valid premium users.
+  const isReelplexiProtectedProxy = /(api\.)?reelplexi\.com/i.test(trimmed)
+    && /\/v1\/stream\/proxy(?:$|[?#])/i.test(trimmed)
+    && /[?&]token=/i.test(trimmed)
+
   // Already proxied or is an iframe embed URL.
-  if (trimmed.startsWith('/api/stream') || trimmed.includes('embed.reelplexi.com')) {
+  if (trimmed.startsWith('/api/stream') || trimmed.includes('embed.reelplexi.com') || isReelplexiProtectedProxy) {
     return true
   }
 
@@ -104,24 +111,29 @@ export function normalizeVideoUrl(url: string): string {
     return url
   }
 
+  const trimmed = url.trim()
+  const isReelplexiProtectedProxy = /(api\.)?reelplexi\.com/i.test(trimmed)
+    && /\/v1\/stream\/proxy(?:$|[?#])/i.test(trimmed)
+    && /[?&]token=/i.test(trimmed)
+
   // HLS/DASH manifest URLs are best played directly by the browser. Routing them
   // through /api/stream adds an extra hop for every playlist/segment request and
   // often causes repeated buffering and stall loops.
-  const isManifest = /\.(m3u8|mpd)(?:$|[?#])/i.test(url) || /\/(manifest|playlist)(?:$|[?#])/i.test(url)
-  if (isManifest) {
-    return url
+  const isManifest = /\.(m3u8|mpd)(?:$|[?#])/i.test(trimmed) || /\/(manifest|playlist)(?:$|[?#])/i.test(trimmed)
+  if (isManifest || trimmed.includes('embed.reelplexi.com') || isReelplexiProtectedProxy) {
+    return trimmed
   }
 
   // Prefetched signed cloud URLs (Wasabi/S3/pre-signed) are usually blocked by
   // browser CORS policy when accessed directly from localhost. Proxy them to our
   // server so the signed URL is fetched server-side and the browser keeps a same-origin stream.
-  if (isDirectMediaSource(url)) {
-    return url
+  if (isDirectMediaSource(trimmed)) {
+    return trimmed
   }
 
-  let fullUrl = url
-  if (!url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('/')) {
-    fullUrl = `https://${url}`
+  let fullUrl = trimmed
+  if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://') && !trimmed.startsWith('/')) {
+    fullUrl = `https://${trimmed}`
   }
 
   // Any signed media URL with authenticated query params must be proxied. A direct
@@ -140,9 +152,18 @@ export async function fetchAuthenticatedVideoUrl(videoPath: string): Promise<str
     return videoPath
   }
 
-  let normalizedUrl = videoPath
-  if (!videoPath.startsWith('http://') && !videoPath.startsWith('https://')) {
-    normalizedUrl = `https://${videoPath}`
+  const trimmed = videoPath.trim()
+  const isReelplexiProtectedProxy = /(api\.)?reelplexi\.com/i.test(trimmed)
+    && /\/v1\/stream\/proxy(?:$|[?#])/i.test(trimmed)
+    && /[?&]token=/i.test(trimmed)
+
+  if (trimmed.includes('embed.reelplexi.com') || isReelplexiProtectedProxy) {
+    return trimmed
+  }
+
+  let normalizedUrl = trimmed
+  if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+    normalizedUrl = `https://${trimmed}`
   }
 
   // Proxy through /api/stream to handle CORS and authentication
