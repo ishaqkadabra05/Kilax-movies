@@ -106,13 +106,11 @@ export function SearchResults({
       case 'movie':
         return `/movies/${item.id}`;
       case 'series':
-        return `/series/${item.id}`;
       case 'anime':
-        return `/non-translated/anime/${item.id}`;
-      case 'english-movie':
-        return `/non-translated/movies/${item.id}`;
       case 'english-series':
-        return `/non-translated/series/${item.id}`;
+        return '/series';
+      case 'english-movie':
+        return `/movies/${item.id}`;
       default:
         return '#';
     }

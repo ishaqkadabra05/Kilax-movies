@@ -713,8 +713,8 @@ export default function PlayerContent() {
       {showBackButton && <div className="absolute top-2 left-2 z-50">
         <Button
           onClick={() => {
-            if (contentType === 'series' && (seriesId || contentId)) {
-              router.push(`/series/${seriesId || contentId}`);
+            if (contentType === 'series') {
+              router.push('/series');
             } else {
               router.back();
             }
