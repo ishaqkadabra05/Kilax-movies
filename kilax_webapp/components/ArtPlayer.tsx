@@ -221,40 +221,18 @@ function ArtPlayerCore({
   }, [])
 
   useEffect(() => {
-    const restoreSavedPositionIfNeeded = () => {
+    const saveCurrentPosition = () => {
       const video = playerRef.current?.video
-      if (!video || video.seeking || (!video.paused && !video.ended) || video.currentTime > 3) return
-      try {
-        const saved = Number(localStorage.getItem(`kilax-resume:${resolvedUrl}`) || 0)
-        const duration = Number.isFinite(video.duration) ? video.duration : 0
-        if (saved > 0 && saved < duration && video.currentTime < 1) {
-          video.currentTime = Math.max(saved, 0)
-        }
-      } catch { /* storage is optional */ }
-    }
-
-    const handlePageExit = () => {
-      const video = playerRef.current?.video
-      if (!video || video.paused || video.ended || video.seeking) return
+      if (!video || video.paused || video.ended || !Number.isFinite(video.currentTime)) return
       const resumeKey = `kilax-resume:${resolvedUrl}`
       try { localStorage.setItem(resumeKey, String(Math.floor(video.currentTime))) } catch { /* storage is optional */ }
-      if (document.pictureInPictureElement || !document.pictureInPictureEnabled) {
-        video.pause()
-        return
-      }
-      void video.requestPictureInPicture?.().catch(() => video.pause())
     }
-    const handleReturn = () => {
-      restoreSavedPositionIfNeeded()
-    }
-    const handleVisibility = () => { if (document.hidden) handlePageExit(); else handleReturn() }
-    document.addEventListener('visibilitychange', handleVisibility)
-    window.addEventListener('pagehide', handlePageExit)
-    window.addEventListener('pageshow', handleReturn)
+
+    window.addEventListener('beforeunload', saveCurrentPosition)
+    window.addEventListener('pagehide', saveCurrentPosition)
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibility)
-      window.removeEventListener('pagehide', handlePageExit)
-      window.removeEventListener('pageshow', handleReturn)
+      window.removeEventListener('beforeunload', saveCurrentPosition)
+      window.removeEventListener('pagehide', saveCurrentPosition)
     }
   }, [resolvedUrl])
 
@@ -543,10 +521,11 @@ function ArtPlayerCore({
 
     art.on('ready', () => {
       onLoadRef.current?.()
-      const hasResumePosition = initialPosition > 0 && art.duration > initialPosition + 3
-      const hasPlaybackProgress = Number.isFinite(art.currentTime) && art.currentTime > 3
-      if (hasResumePosition && !hasPlaybackProgress) {
-        art.currentTime = initialPosition
+      const duration = Number.isFinite(art.duration) ? art.duration : 0
+      const resumeTime = Number.isFinite(initialPosition) ? initialPosition : 0
+      const shouldResume = resumeTime > 0 && duration > resumeTime + 3 && art.currentTime < 1
+      if (shouldResume) {
+        art.currentTime = resumeTime
       }
 
       const tryPlay = async () => {

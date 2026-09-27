@@ -169,6 +169,29 @@ function RatingBadge({ r }: { r:string }) {
   );
 }
 
+function getDisplayScoreFromItem(item: any): number {
+  const candidates = [
+    item?.score,
+    item?.vote_average,
+    item?.rating,
+    item?.imdb_rating,
+    item?.imdb_score,
+    item?.average_rating,
+    item?.ratings?.imdb,
+    item?.ratings?.tmdb,
+    item?.ratings?.average,
+    item?.ratings?.score,
+    item?.ratings?.value,
+  ];
+
+  for (const candidate of candidates) {
+    const parsed = normalizeScoreValue(candidate);
+    if (parsed !== null) return parsed;
+  }
+
+  return 0;
+}
+
 function StarRating({ score }: { score:number }) {
   const safeScore = Number.isFinite(score) ? Math.min(Math.max(score, 0), 10) : 0;
   const filledStars = Math.max(0, Math.min(5, Math.round(safeScore / 2)));
@@ -738,6 +761,7 @@ function MediaCard({ item, myList, onToggleList, onOpen, inRow=false, listAction
   const genres = item.genres.filter((g:string)=>g.toLowerCase() !== 'musical').slice(0,3);
   const poster = !posterFailed && item.image ? item.image : (item.image || `https://via.placeholder.com/500x750/111827/94a3b8?text=${encodeURIComponent(item.title)}`);
   const vj = item.vj || "VJ";
+  const cardScore = getDisplayScoreFromItem(item);
   const { share } = useShareReferral();
 
   return (
@@ -746,13 +770,13 @@ function MediaCard({ item, myList, onToggleList, onOpen, inRow=false, listAction
         <img src={poster} alt={item.title} loading="lazy" decoding="async" style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }} onError={()=>setPosterFailed(true)} />
         <div style={{ position:"absolute", inset:0, background:"linear-gradient(to top,rgba(13,17,23,0.98) 0%,rgba(13,17,23,0.16) 58%,transparent 100%)" }} />
         <div style={{ position:"absolute", top:10, left:10, background:item.type==="series"?"rgba(59,130,246,0.88)":"rgba(249,115,22,0.88)", backdropFilter:"blur(6px)", boxShadow:item.type==="series"?"0 0 14px rgba(59,130,246,.7)":"0 0 14px rgba(249,115,22,.7)", color:"#fff", fontSize:9, fontWeight:800, padding:"3px 9px", borderRadius:6 }}>{item.type==="series"?"SERIES":"MOVIE"}</div>
-        {item.score > 0 && (
-          <div style={{ position:"absolute", bottom:10, left:10, background:"rgba(0,0,0,0.8)", backdropFilter:"blur(8px)", color:"#fff", fontSize:mobile?8:9, fontWeight:800, padding:mobile?"3px 6px":"4px 8px", borderRadius:999, border:"1px solid rgba(251,191,36,.3)", display:"flex", alignItems:"center", gap:3 }}>
+        <div style={{ position:"absolute", bottom:10, left:10, background:"rgba(59,130,246,0.84)", color:"#fff", fontSize:mobile?8:9, fontWeight:800, boxShadow:"0 0 14px rgba(59,130,246,.7)", padding:mobile?"3px 6px":"4px 9px", borderRadius:999, border:"1px solid rgba(147,197,253,.4)", maxWidth:mobile?"58%":"70%", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{vj}</div>
+        {cardScore > 0 && (
+          <div style={{ position:"absolute", bottom:10, right:10, background:"rgba(0,0,0,0.8)", backdropFilter:"blur(8px)", color:"#fff", fontSize:mobile?8:9, fontWeight:800, padding:mobile?"3px 6px":"4px 8px", borderRadius:999, border:"1px solid rgba(251,191,36,.3)", display:"flex", alignItems:"center", gap:3 }}>
             <svg width={mobile?10:11} height={mobile?10:11} viewBox="0 0 24 24" fill="#fbbf24" stroke="#fbbf24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-            <span style={{color:"#fbbf24"}}>{item.score.toFixed(1)}</span>
+            <span style={{color:"#fbbf24"}}>{cardScore.toFixed(1)}</span>
           </div>
         )}
-        <div style={{ position:"absolute", bottom:10, right:10, background:"rgba(59,130,246,0.84)", color:"#fff", fontSize:mobile?8:9, fontWeight:800, boxShadow:"0 0 14px rgba(59,130,246,.7)", padding:mobile?"3px 6px":"4px 9px", borderRadius:999, border:"1px solid rgba(147,197,253,.4)", maxWidth:mobile?"58%":"70%", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{vj}</div>
       </div>
       <div style={{ padding:"10px 3px 2px", display:"grid", gap:7 }}>
         <div style={{ display:"flex", alignItems:"center", gap:6, minHeight:20, width:"100%" }}>

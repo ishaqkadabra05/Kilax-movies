@@ -1,6 +1,7 @@
 import { ReelplexiConfig } from './reelplexi-config'
 import { cache } from './cache'
 import { supabaseAdmin } from './supabase'
+import { getEffectiveScore, getEffectiveRatingString } from './rating-utils'
 
 // TTL constants (seconds)
 const TTL_LIST    = 300   // 5 min  — paginated lists
