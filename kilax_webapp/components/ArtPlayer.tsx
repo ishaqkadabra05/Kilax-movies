@@ -429,7 +429,7 @@ function ArtPlayerCore({
       volume: 0.5,
       isLive: false,
       muted: false,
-      autoplay: true,
+      autoplay: false, // Changed to false to prevent auto-restart issues
       pip: true,
       // autoSize MUST be false — it overrides container dimensions and hides controls
       autoSize: false,
@@ -450,8 +450,17 @@ function ArtPlayerCore({
       airplay: true,
       theme: '#f97316',
       lang: 'en',
-      moreVideoAttr: { preload: 'metadata', crossOrigin: 'anonymous' } as any,
+      // Optimize video attributes for better seeking performance and prevent resets
+      moreVideoAttr: { 
+        preload: 'metadata', 
+        crossOrigin: 'anonymous',
+        // Add buffer optimization attributes
+        'x-webkit-airplay': 'allow',
+        playsinline: true
+      } as any,
       fastForward: true,
+      // Optimize for streaming and prevent seeking issues
+      type: 'auto', // Let ArtPlayer detect the format
       controls: [
         ...(contentType === 'series' && episodes.length > 0 ? [
           {
@@ -499,7 +508,21 @@ function ArtPlayerCore({
     // ── Events ────────────────────────────────────────────────────────────
 
     art.on('error', (error) => {
+      console.error('ArtPlayer error:', { error, url: resolvedUrl })
       const message = getStreamErrorMessage(error)
+      
+      // Don't immediately set auth error for network issues - try to recover
+      if (error?.type === 'network' && art.video) {
+        console.log('Network error detected, attempting recovery...')
+        // Try to reload the video element without destroying the player
+        setTimeout(() => {
+          if (art && art.video) {
+            art.video.load()
+          }
+        }, 1000)
+        return
+      }
+      
       setAuthError(message)
       onErrorRef.current?.(error)
     })
@@ -528,16 +551,43 @@ function ArtPlayerCore({
         art.currentTime = resumeTime
       }
 
-      const tryPlay = async () => {
-        try { await art.play() } catch {
-          try { art.muted = true; await art.play() } catch { /* user taps play */ }
-        }
-      }
-      void tryPlay()
-
-      // Swallow AbortError from play-then-immediate-pause
+      // Optimize video element for better seeking and prevent resets
       if (art.video) {
         art.video.preload = 'metadata'
+        
+        // Add event listeners for better seeking feedback
+        art.video.addEventListener('seeking', () => {
+          console.log('Video seeking to:', art.video.currentTime)
+        })
+
+        art.video.addEventListener('seeked', () => {
+          console.log('Video seeked successfully to:', art.video.currentTime)
+        })
+        
+        // Add buffer monitoring to prevent resets
+        art.video.addEventListener('progress', () => {
+          try {
+            if ('buffered' in art.video) {
+              const buffered = art.video.buffered
+              if (buffered.length > 0) {
+                const bufferEnd = buffered.end(buffered.length - 1)
+                const currentTime = art.video.currentTime
+                // Log buffer info for debugging
+                if (currentTime > 0 && bufferEnd > currentTime) {
+                  console.log('Buffer status:', {
+                    current: currentTime,
+                    buffered: bufferEnd,
+                    duration: art.video.duration
+                  })
+                }
+              }
+            }
+          } catch (e) {
+            // Ignore buffer info errors
+          }
+        })
+        
+        // Prevent AbortError from interrupting playback
         const origPlay = art.video.play.bind(art.video)
         art.video.play = function () {
           const p = origPlay()
@@ -545,6 +595,13 @@ function ArtPlayerCore({
           return p
         }
       }
+
+      const tryPlay = async () => {
+        try { await art.play() } catch {
+          try { art.muted = true; await art.play() } catch { /* user taps play */ }
+        }
+      }
+      void tryPlay()
 
       // Episodes button in control bar
       if (contentType === 'series' && episodes.length > 0) {

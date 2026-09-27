@@ -14,6 +14,7 @@ interface ReelplexContentItem {
   title: string;
   vj: string;
   type: ReelplexContentType;
+  poster_url?: string;
 }
 
 interface ReelplexApiItem {
@@ -23,6 +24,8 @@ interface ReelplexApiItem {
   creator?: string;
   channel?: string;
   type?: string;
+  poster_url?: string;
+  backdrop_url?: string;
 }
 
 function normalizeItem(item: ReelplexApiItem | null | undefined, type: ReelplexContentType): ReelplexContentItem | null {
@@ -32,7 +35,13 @@ function normalizeItem(item: ReelplexApiItem | null | undefined, type: ReelplexC
   const id = String(item?.id ?? `${type}:${title}`);
   const vj = String(item?.vj || item?.creator || item?.channel || "Unknown VJ").trim() || "Unknown VJ";
 
-  return { id, title, vj, type };
+  return {
+    id,
+    title,
+    vj,
+    type,
+    poster_url: item?.poster_url || item?.backdrop_url || "",
+  };
 }
 
 async function getLatestContent(type: ReelplexContentType) {
@@ -97,11 +106,13 @@ export async function syncNewReelplexContentNotifications() {
     for (const item of uniqueContent) {
       const title = `New ${getContentLabel(type)} Added`;
       const message = `${item.title} by ${item.vj} has just been added to Kilax Movies Platform.`;
+      const imageUrl = item.poster_url || undefined;
 
       try {
         await sendOneSignalNotification({
           title,
           message,
+          imageUrl,
         });
         totalNotifications += 1;
       } catch (error) {

@@ -83,8 +83,8 @@ export function isDirectMediaSource(url: string): boolean {
   }
 }
 
-// Keep stream URLs direct. Re-proxying Reelplex videos causes playback to restart
-// mid-stream because the client is forced through an extra URL rotation layer.
+// Keep stream URLs direct and stable to prevent mid-stream resets.
+// Avoid re-proxying or transforming URLs unnecessarily as this can cause playback interruptions.
 export function normalizeVideoUrl(url: string): string {
   if (!url || url === '#') {
     return url
@@ -95,10 +95,22 @@ export function normalizeVideoUrl(url: string): string {
     return trimmed
   }
 
+  // For ReelPlex embed URLs, keep them as-is
+  if (trimmed.includes('embed.reelplexi.com')) {
+    return trimmed
+  }
+
+  // For HLS manifests (.m3u8), keep them direct to prevent seeking issues
+  if (trimmed.includes('.m3u8')) {
+    return trimmed
+  }
+
+  // For already complete URLs (http/https), keep them as-is to prevent rotation
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('/')) {
     return trimmed
   }
 
+  // Only add https:// for incomplete URLs
   return `https://${trimmed}`
 }
 

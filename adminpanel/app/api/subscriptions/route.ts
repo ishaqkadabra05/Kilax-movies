@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/supabase/auth";
+import { fetchAllSupabaseRows } from "@/lib/supabase/pagination";
 import { createUserDb } from "@/lib/supabase/user-db";
 
 export async function GET(request: NextRequest) {
@@ -7,38 +8,22 @@ export async function GET(request: NextRequest) {
     await requireAdmin(request);
     const db = createUserDb();
 
-    const [{ data, error }, profilesRes, plansRes] = await Promise.all([
-      db.from("subscriptions")
-        .select("id,user_id,plan_id,subscription_type,payment_method,status,start_date,expiry_date,created_at")
-        .order("created_at", { ascending: false }),
-      db.from("profiles").select("id,full_name,email,avatar_url,subscription"),
-      db.from("plans").select("id,name,tier_label"),
+    const [data, profiles, plans] = await Promise.all([
+      fetchAllSupabaseRows<any>(
+        db.from("subscriptions")
+          .select("id,user_id,plan_id,subscription_type,payment_method,status,start_date,expiry_date,created_at")
+          .order("created_at", { ascending: false })
+      ),
+      fetchAllSupabaseRows<any>(db.from("profiles").select("id,full_name,email,avatar_url,subscription")),
+      fetchAllSupabaseRows<any>(db.from("plans").select("id,name,tier_label")),
     ]);
 
-    if (error) throw error;
-    
-    // Debug: Log raw subscription data
-    console.log("Raw subscriptions from DB (first 3):", (data || []).slice(0, 3).map(s => ({
-      plan_id: s.plan_id,
-      subscription_type: s.subscription_type,
-      status: s.status
-    })));
-    
-    const profiles = new Map((profilesRes.data || []).map((profile: any) => [String(profile.id), profile]));
-    const plans = new Map((plansRes.data || []).map((plan: any) => [String(plan.id), plan]));
-    
-    // Debug: Log profile subscriptions to see if plan info is stored there
-    console.log("Profile subscriptions (first 3):", (profilesRes.data || []).slice(0, 3).map(p => ({
-      email: p.email,
-      subscription: p.subscription
-    })));
-    
-    // Debug: Log plans map
-    console.log("Plans from DB:", Array.from(plans.values()).map(p => ({ id: p.id, name: p.name, tier_label: p.tier_label })));
+    const profilesMap = new Map((profiles || []).map((profile: any) => [String(profile.id), profile]));
+    const plansMap = new Map((plans || []).map((plan: any) => [String(plan.id), plan]));
 
     const rows = (data || []).map((s: any) => {
-      const profile = profiles.get(String(s.user_id)) || {};
-      const plan = plans.get(String(s.plan_id));
+      const profile = profilesMap.get(String(s.user_id)) || {};
+      const plan = plansMap.get(String(s.plan_id));
       const isTrial = String(s.subscription_type ?? "").toLowerCase() === "trial";
       
       // Check if profile has a subscription field that might indicate the plan

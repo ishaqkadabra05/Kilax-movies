@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/supabase/auth";
 import { createLegacyUserDb, createUserDb } from "@/lib/supabase/user-db";
+import { listAllAuthUsers } from "@/lib/supabase/pagination";
 import { reelplexiFetch } from "@/lib/reelplexi";
 import { withCache } from "@/lib/cache";
 import { syncNewReelplexContentNotifications } from "@/lib/reelplex-content-notifications";
@@ -27,18 +28,15 @@ function mapContent(items: any[], type: "movie" | "series") {
 
 async function loadCombinedUserCount(defaultDb: ReturnType<typeof createUserDb>, legacyDb: ReturnType<typeof createLegacyUserDb>) {
   const [defaultUsers, legacyUsers] = await Promise.all([
-    defaultDb.auth.admin.listUsers({ page: 1, perPage: 1000 }),
-    legacyDb ? legacyDb.auth.admin.listUsers({ page: 1, perPage: 1000 }) : Promise.resolve({ data: { users: [] }, error: null }),
+    listAllAuthUsers(defaultDb),
+    legacyDb ? listAllAuthUsers(legacyDb) : Promise.resolve([]),
   ]);
 
-  if (defaultUsers.error) throw defaultUsers.error;
-  if (legacyUsers.error) throw legacyUsers.error;
-
   const merged = new Map<string, any>();
-  for (const user of defaultUsers.data?.users || []) {
+  for (const user of defaultUsers || []) {
     if (user?.id) merged.set(String(user.id), user);
   }
-  for (const user of legacyUsers.data?.users || []) {
+  for (const user of legacyUsers || []) {
     if (user?.id && !merged.has(String(user.id))) merged.set(String(user.id), user);
   }
 

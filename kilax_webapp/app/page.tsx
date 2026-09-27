@@ -1223,13 +1223,28 @@ function SearchOverlay({ onClose, onOpen }: { onClose:()=>void; onOpen:(m:MediaI
 }
 
 // ─── Notifications Panel ──────────────────────────────────────────────────────
-function NotificationsPanel({ onClose, notifs, onRead }: { onClose:()=>void; notifs:AppNotification[]; onRead:(id:string)=>void }) {
+function NotificationsPanel({ onClose, notifs, onRead, onOpenTarget }: { onClose:()=>void; notifs:AppNotification[]; onRead:(id:string)=>void; onOpenTarget?:(n:AppNotification)=>void }) {
   const { mobile } = useResponsive();
-  const unread = notifs.filter(n=>!n.read_at).length;
+  const orderedNotifs = [...notifs].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  const unread = orderedNotifs.filter(n=>!n.read_at).length;
   const markAllRead = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (session?.access_token) await fetch("/api/notifications", { method:"PATCH", headers:{ Authorization:`Bearer ${session.access_token}`, "Content-Type":"application/json" }, body:JSON.stringify({notificationId:"all"}) });
-    notifs.forEach(n=>onRead(n.id));
+    orderedNotifs.forEach(n=>onRead(n.id));
+  };
+
+  const getNotificationImage = (n: AppNotification) => {
+    const text = `${n.title || ""} ${n.body || ""}`.toLowerCase();
+    const isActivationNotification =
+      /subscription activated|trial activated|activation|trial active|premium activated/.test(text);
+
+    if (isActivationNotification) return "/logo.png";
+    if (n.thumbnail && n.thumbnail.trim()) {
+      const value = n.thumbnail.trim();
+      if (/^https?:\/\//i.test(value) || value.startsWith("/")) return value;
+    }
+    if (typeof n.icon === "string" && n.icon.startsWith("http")) return n.icon;
+    return "/logo.png";
   };
 
   return (
@@ -1245,16 +1260,18 @@ function NotificationsPanel({ onClose, notifs, onRead }: { onClose:()=>void; not
         </div>
       </div>
       <div style={{ flex:1, overflowY:"auto" }}>
-        {notifs.map(n=>(
-          <div key={n.id} onClick={()=>{onRead(n.id); if (n.url) window.location.href=n.url}} style={{ padding:"14px 20px", borderBottom:"1px solid rgba(255,255,255,0.04)", background:!n.read_at?"rgba(59,130,246,0.04)":"transparent", cursor:n.url?"pointer":"default", display:"flex", gap:14, alignItems:"flex-start" }} onMouseEnter={e=>(e.currentTarget.style.background="rgba(255,255,255,0.03)")} onMouseLeave={e=>(e.currentTarget.style.background=!n.read_at?"rgba(59,130,246,0.04)":"transparent")}>
-            <span style={{ fontSize:20 }}>{n.icon}</span>
-            <div style={{ flex:1 }}>
-              <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
-                <p style={{ color:"white", fontSize:13, fontWeight:!n.read_at?700:500, margin:0 }}>{n.title}</p>
-                {!n.read_at&&<span style={{ width:7, height:7, borderRadius:"50%", background:BLUE, flexShrink:0, marginTop:4 }} />}
+        {orderedNotifs.map(n=>(
+          <div key={n.id} onClick={()=>{onRead(n.id); if (onOpenTarget) { onOpenTarget(n); return; } if (n.url) window.location.href=n.url}} style={{ padding:"14px 20px", borderBottom:"1px solid rgba(255,255,255,0.04)", background:!n.read_at?"rgba(59,130,246,0.04)":"transparent", cursor:n.url?"pointer":"default", display:"flex", gap:12, alignItems:"center", justifyContent:"space-between" }} onMouseEnter={e=>(e.currentTarget.style.background="rgba(255,255,255,0.03)")} onMouseLeave={e=>(e.currentTarget.style.background=!n.read_at?"rgba(59,130,246,0.04)":"transparent")}>
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:3 }}>
+                <p style={{ color:"white", fontSize:13, fontWeight:!n.read_at?700:500, margin:0, lineHeight:1.4, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{n.title}</p>
+                {!n.read_at&&<span style={{ width:7, height:7, borderRadius:"50%", background:BLUE, flexShrink:0, marginLeft:8 }} />}
               </div>
               <p style={{ color:"#64748b", fontSize:12, margin:0, lineHeight:1.5 }}>{n.body}</p>
               <p style={{ color:"#334155", fontSize:11, margin:"4px 0 0" }}>{new Date(n.created_at).toLocaleString()}</p>
+            </div>
+            <div style={{ width:74, height:74, borderRadius:12, overflow:"hidden", background:"rgba(15,23,42,0.8)", border:"1px solid rgba(255,255,255,0.08)", flexShrink:0 }}>
+              <img src={getNotificationImage(n)} alt={n.title} style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }} />
             </div>
           </div>
         ))}
@@ -2529,6 +2546,39 @@ export default function App() {
     setMyList(prev=>{ const n=new Set(prev); n.has(id)?n.delete(id):n.add(id); return n; });
   });
 
+  const openNotificationTarget = useCallback((notification: AppNotification) => {
+    const data = notification.data || {};
+    const type = String(data.type || data.content_type || "").toLowerCase();
+    const id = data.id ?? data.content_id ?? data.source_id ?? data.movie_id ?? data.series_id;
+
+    if (type === "movie" && id) {
+      const item = mediaCatalog.find((entry) => String(entry.sourceId || entry.id) === String(id) && entry.type === "movie");
+      if (item) {
+        setNotifOpen(false);
+        setModal(item);
+        return;
+      }
+    }
+
+    if (type === "series" && id) {
+      const item = mediaCatalog.find((entry) => String(entry.sourceId || entry.id) === String(id) && entry.type === "series");
+      if (item) {
+        setNotifOpen(false);
+        setSeriesDetail(item);
+        return;
+      }
+    }
+
+    const safeUrl = typeof notification.url === "string" && notification.url.trim() ? notification.url.trim() : null;
+    if (safeUrl) {
+      setNotifOpen(false);
+      window.location.href = safeUrl;
+      return;
+    }
+
+    setNotifOpen(false);
+  }, [mediaCatalog]);
+
   const handlePlay = useCallback((item:MediaItem, epIdx=0) => requireAuth(async ()=>{
     window.dispatchEvent(new Event("kilax-content-interacted"));
     if (item.premium && !isPremium) { setPaywall(item); return; }
@@ -2755,7 +2805,7 @@ export default function App() {
       </div>
 
       {searchOpen   && <SearchOverlay      onClose={()=>setSearchOpen(false)} onOpen={m=>{ openDetailRoute(m); setSearchOpen(false); }} />}
-      {notifOpen    && <NotificationsPanel onClose={()=>setNotifOpen(false)} notifs={notifications} onRead={markNotificationRead} />}
+      {notifOpen    && <NotificationsPanel onClose={()=>setNotifOpen(false)} notifs={notifications} onRead={markNotificationRead} onOpenTarget={openNotificationTarget} />}
       {modal        && <DetailModal        item={modal} myList={myList} onToggleList={toggleList} onClose={()=>setModal(null)} onPlay={handlePlay} onViewSeries={handleViewSeries} />}
       {paywallItem  && <PremiumPaywall     item={paywallItem} onClose={()=>setPaywall(null)} onUpgrade={()=>{ setPaywall(null); updatePage("subscription"); }} />}
       {freeLimitReached && <FreeAllowanceLimitModal onClose={()=>setFreeLimitReached(false)} onUpgrade={()=>{ setFreeLimitReached(false); updatePage("subscription"); }} resetAt={freeAllowance?.resetAt} />}

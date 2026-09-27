@@ -21,21 +21,45 @@ export async function GET(req: NextRequest) {
     .from("notification_recipients")
     .select("notification_id, read_at, notifications(id, title, body, icon, url, data, created_at)")
     .eq("user_id", user.id)
-    .order("notification_id", { ascending: false })
     .limit(50);
   if (error) return NextResponse.json({ error: "Unable to load notifications" }, { status: 500 });
 
   const notifications = (data || [])
     .map((row: any) => {
       const notification = row.notifications || {};
-      const imageSource = notification.data?.thumbnail || notification.data?.poster_url || notification.data?.image_url || notification.data?.image || notification.icon || null;
+      const lowerText = `${notification.title || ""} ${notification.body || ""}`.toLowerCase();
+      const isActivationNotification =
+        notification.data?.source === "subscription" ||
+        notification.data?.source === "trial" ||
+        /subscription activated|trial activated|activation|trial active|premium activated/.test(lowerText);
+
+      const candidatePoster = [
+        notification.data?.poster_url,
+        notification.data?.poster,
+        notification.data?.thumbnail_url,
+        notification.data?.cover_image_url,
+        notification.data?.thumbnail,
+        notification.data?.image_url,
+        notification.data?.image,
+        notification.data?.backdrop_url,
+        notification.data?.media_url,
+        notification.icon,
+      ].find((value) => typeof value === "string" && value.trim());
+
+      const imageSource = isActivationNotification
+        ? "/logo.png"
+        : (candidatePoster && String(candidatePoster).trim()) || "/logo.png";
+
       return {
         ...notification,
+        data: notification.data || null,
         thumbnail: imageSource,
         read_at: row.read_at,
       };
     })
-    .filter((notification: any) => notification.id);
+    .filter((notification: any) => notification.id)
+    .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
   return NextResponse.json({ notifications, unreadCount: notifications.filter((item: any) => !item.read_at).length });
 }
 

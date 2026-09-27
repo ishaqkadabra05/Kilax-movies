@@ -4,6 +4,7 @@ export async function sendOneSignalNotification(input: {
   title: string;
   message: string;
   url?: string;
+  imageUrl?: string;
   externalIds?: string[];
 }) {
   const appId  = process.env.ONESIGNAL_APP_ID;
@@ -11,27 +12,27 @@ export async function sendOneSignalNotification(input: {
   if (!appId || !apiKey) throw new Error("OneSignal credentials are not configured");
 
   const payload: Record<string, unknown> = {
-    app_id:         appId,
-    headings:       { en: input.title },
-    contents:       { en: input.message },
-    target_channel: "push",   // required for web push
+    app_id: appId,
+    headings: { en: input.title },
+    contents: { en: input.message },
+    target_channel: "push",
+    channel_for_external_user_ids: "push",
   };
 
   if (input.url) payload.url = input.url;
+  if (input.imageUrl) payload.big_picture = input.imageUrl;
 
-  // Target specific users by their Supabase UUID (set as OneSignal external_id)
-  // or broadcast to all subscribers when no IDs are provided.
+  // Specific users must be targeted with external IDs and the push channel explicitly set.
   if (input.externalIds?.length) {
     payload.include_aliases = { external_id: input.externalIds };
   } else {
-    // "Subscribed Users" is the OneSignal default segment — always exists
     payload.included_segments = ["Subscribed Users"];
   }
 
   const response = await fetch(API_URL, {
-    method:  "POST",
+    method: "POST",
     headers: {
-      Authorization:  `Key ${apiKey}`,
+      Authorization: `Key ${apiKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify(payload),
@@ -41,5 +42,6 @@ export async function sendOneSignalNotification(input: {
   if (!response.ok) {
     throw new Error(`OneSignal ${response.status}: ${body.slice(0, 500)}`);
   }
+
   return body ? JSON.parse(body) : {};
 }

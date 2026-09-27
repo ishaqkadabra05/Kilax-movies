@@ -12,6 +12,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { listAllAuthUsers } from "@/lib/supabase/pagination";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 
 export async function POST(request: NextRequest) {
@@ -39,16 +40,14 @@ export async function POST(request: NextRequest) {
   const admin = createSupabaseAdmin();
 
   // Look up the user by email
-  const { data: listData, error: listError } = await admin.auth.admin.listUsers({
-    page: 1,
-    perPage: 1000,
-  });
-
-  if (listError) {
-    return NextResponse.json({ error: listError.message }, { status: 500 });
+  let users: any[];
+  try {
+    users = await listAllAuthUsers(admin);
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to list users" }, { status: 500 });
   }
 
-  const user = listData.users.find(
+  const user = users.find(
     (u) => u.email?.toLowerCase() === body.email!.toLowerCase()
   );
 

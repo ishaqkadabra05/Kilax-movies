@@ -136,6 +136,8 @@ class ReelplexiService {
         'Authorization': `Bearer ${apiKey}`,
       },
       cache: 'no-store',
+      // Add timeout to prevent hanging requests that could cause player resets
+      signal: AbortSignal.timeout(30000), // 30 second timeout
     })
 
     const rawText = await response.text()
@@ -470,30 +472,41 @@ class ReelplexiService {
     try {
       const response = await this.getJson(`/v1/stream/movie/${encodeURIComponent(id)}`)
       const streamData = response.data || response
+      
+      // Prioritize stable stream URLs over embed URLs to prevent resets
       if (streamData.stream_url) {
+        console.log('[ReelplexiService] Using direct stream URL for movie:', id)
         return { stream_url: streamData.stream_url, is_embed: false }
       }
       if (streamData.video_url) {
+        console.log('[ReelplexiService] Using video URL for movie:', id)
         return { stream_url: streamData.video_url, is_embed: false }
       }
+      // Only use embed as last resort to prevent player resets
       if (streamData.embed_url) {
+        console.log('[ReelplexiService] Falling back to embed URL for movie:', id)
         return { stream_url: streamData.embed_url, is_embed: true }
       }
-    } catch {
+    } catch (error) {
+      console.warn('[ReelplexiService] Primary stream endpoint failed for movie:', id, error)
+      
       try {
         const response = await this.getJson(`/v1/movies/${encodeURIComponent(id)}/stream`)
         const streamData = response.data || response
         if (streamData.stream_url || streamData.video_url || streamData.proxy_url) {
+          console.log('[ReelplexiService] Using fallback stream endpoint for movie:', id)
           return {
             stream_url: streamData.stream_url || streamData.video_url || streamData.proxy_url,
             is_embed: false,
           }
         }
-      } catch {
-        // Fall through to the documented embed endpoint.
+      } catch (fallbackError) {
+        console.warn('[ReelplexiService] Fallback stream endpoint failed for movie:', id, fallbackError)
       }
     }
 
+    // Final fallback to embed (may cause player resets but better than no video)
+    console.log('[ReelplexiService] Using embed fallback for movie:', id)
     const embedBase = ReelplexiConfig.embedBase
     const embedUrl = `${embedBase}/movie/${encodeURIComponent(id)}?key=${encodeURIComponent(ReelplexiConfig.apiKey)}`
     return { stream_url: embedUrl, is_embed: true }
@@ -517,32 +530,43 @@ class ReelplexiService {
     try {
       const response = await this.getJson(`/v1/stream/tv/${encodeURIComponent(seriesId)}/${season}/${episode}`)
       const streamData = response.data || response
+      
+      // Prioritize stable stream URLs over embed URLs to prevent resets
       if (streamData.stream_url) {
+        console.log('[ReelplexiService] Using direct stream URL for episode:', { seriesId, season, episode })
         return { stream_url: streamData.stream_url, is_embed: false }
       }
       if (streamData.video_url) {
+        console.log('[ReelplexiService] Using video URL for episode:', { seriesId, season, episode })
         return { stream_url: streamData.video_url, is_embed: false }
       }
+      // Only use embed as last resort to prevent player resets
       if (streamData.embed_url) {
+        console.log('[ReelplexiService] Falling back to embed URL for episode:', { seriesId, season, episode })
         return { stream_url: streamData.embed_url, is_embed: true }
       }
-    } catch {
+    } catch (error) {
+      console.warn('[ReelplexiService] Primary stream endpoint failed for episode:', { seriesId, season, episode }, error)
+      
       try {
         const response = await this.getJson(
           `/v1/series/${encodeURIComponent(seriesId)}/seasons/${season}/episodes/${episode}/stream`
         )
         const streamData = response.data || response
         if (streamData.video_url || streamData.stream_url || streamData.proxy_url) {
+          console.log('[ReelplexiService] Using fallback stream endpoint for episode:', { seriesId, season, episode })
           return {
             stream_url: streamData.video_url || streamData.stream_url || streamData.proxy_url,
             is_embed: false,
           }
         }
-      } catch {
-        // Fall through to the documented embed endpoint.
+      } catch (fallbackError) {
+        console.warn('[ReelplexiService] Fallback stream endpoint failed for episode:', { seriesId, season, episode }, fallbackError)
       }
     }
 
+    // Final fallback to embed (may cause player resets but better than no video)
+    console.log('[ReelplexiService] Using embed fallback for episode:', { seriesId, season, episode })
     const embedBase = ReelplexiConfig.embedBase
     const embedUrl = `${embedBase}/tv/${encodeURIComponent(seriesId)}/${season}/${episode}?key=${encodeURIComponent(ReelplexiConfig.apiKey)}`
     return { stream_url: embedUrl, is_embed: true }

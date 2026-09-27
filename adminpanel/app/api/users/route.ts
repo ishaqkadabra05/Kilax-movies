@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/supabase/auth";
+import { fetchAllSupabaseRows, listAllAuthUsers } from "@/lib/supabase/pagination";
 import { createLegacyUserDb, createUserDb } from "@/lib/supabase/user-db";
 
 function toArray<T>(value: T[] | null | undefined): T[] {
@@ -24,33 +25,39 @@ export async function GET(request: NextRequest) {
     const perPage = Math.min(1000, Math.max(1, Number(request.nextUrl.searchParams.get("per_page") || 500)));
     const search = request.nextUrl.searchParams.get("search")?.trim().toLowerCase() || "";
 
-    const [profilesRes, subsRes, plansRes, legacyProfilesRes, legacySubsRes] = await Promise.all([
-      db.from("profiles").select("id,full_name,email,avatar_url,role,created_at,subscription,subscription_start_date,subscription_expiry_date,trial_status,trial_started_at,trial_expires_at,phone"),
-      db.from("subscriptions")
-        .select("user_id,plan_id,subscription_type,status,start_date,expiry_date,payment_method,created_at")
-        .order("created_at", { ascending: false }),
-      db.from("plans").select("id,name,tier,tier_label"),
+    const [profiles, subs, plans, legacyProfiles, legacySubs] = await Promise.all([
+      fetchAllSupabaseRows<any>(
+        db.from("profiles").select("id,full_name,email,avatar_url,role,created_at,subscription,subscription_start_date,subscription_expiry_date,trial_status,trial_started_at,trial_expires_at,phone")
+      ),
+      fetchAllSupabaseRows<any>(
+        db.from("subscriptions")
+          .select("user_id,plan_id,subscription_type,status,start_date,expiry_date,payment_method,created_at")
+          .order("created_at", { ascending: false })
+      ),
+      fetchAllSupabaseRows<any>(db.from("plans").select("id,name,tier,tier_label")),
       legacyDb
-        ? legacyDb.from("profiles").select("id,full_name,email,avatar_url,role,created_at,subscription,subscription_start_date,subscription_expiry_date,trial_status,trial_started_at,trial_expires_at,phone")
-        : Promise.resolve({ data: [], error: null }),
+        ? fetchAllSupabaseRows<any>(
+            legacyDb.from("profiles").select("id,full_name,email,avatar_url,role,created_at,subscription,subscription_start_date,subscription_expiry_date,trial_status,trial_started_at,trial_expires_at,phone")
+          )
+        : Promise.resolve([]),
       legacyDb
-        ? legacyDb.from("subscriptions")
-            .select("user_id,plan_id,subscription_type,status,start_date,expiry_date,payment_method,created_at")
-            .order("created_at", { ascending: false })
-        : Promise.resolve({ data: [], error: null }),
+        ? fetchAllSupabaseRows<any>(
+            legacyDb.from("subscriptions")
+              .select("user_id,plan_id,subscription_type,status,start_date,expiry_date,payment_method,created_at")
+              .order("created_at", { ascending: false })
+          )
+        : Promise.resolve([]),
     ]);
 
     const authUsersById = new Map<string, any>();
-    const defaultUsers = await db.auth.admin.listUsers({ page: 1, perPage: 1000 });
-    if (defaultUsers.error) throw defaultUsers.error;
-    for (const user of toArray(defaultUsers.data?.users)) {
+    const defaultUsers = await listAllAuthUsers(db);
+    for (const user of toArray(defaultUsers)) {
       if (user?.id) authUsersById.set(String(user.id), { ...user, source: "default" });
     }
 
     if (legacyDb) {
-      const legacyUsers = await legacyDb.auth.admin.listUsers({ page: 1, perPage: 1000 });
-      if (legacyUsers.error) throw legacyUsers.error;
-      for (const user of toArray(legacyUsers.data?.users)) {
+      const legacyUsers = await listAllAuthUsers(legacyDb);
+      for (const user of toArray(legacyUsers)) {
         if (!user?.id) continue;
         const key = String(user.id);
         if (!authUsersById.has(key)) authUsersById.set(key, { ...user, source: "legacy" });
@@ -58,23 +65,23 @@ export async function GET(request: NextRequest) {
     }
 
     const profileMap = new Map<string, any>();
-    for (const profile of toArray((profilesRes as any)?.data) as any[]) {
+    for (const profile of toArray(profiles) as any[]) {
       if (profile?.id) profileMap.set(String(profile.id), { ...profile, source: "default" });
     }
-    for (const profile of toArray((legacyProfilesRes as any)?.data) as any[]) {
+    for (const profile of toArray(legacyProfiles) as any[]) {
       if (profile?.id) {
         const key = String(profile.id);
         if (!profileMap.has(key)) profileMap.set(key, { ...profile, source: "legacy" });
       }
     }
 
-    const planMap = new Map((toArray((plansRes as any)?.data) || []).map((plan: any) => [String(plan.id), plan]));
+    const planMap = new Map((toArray(plans) || []).map((plan: any) => [String(plan.id), plan]));
 
     const subMap = new Map<string, any>();
-    for (const sub of toArray((subsRes as any)?.data) as any[]) {
+    for (const sub of toArray(subs) as any[]) {
       if (sub?.user_id && !subMap.has(String(sub.user_id))) subMap.set(String(sub.user_id), { ...sub, source: "default" });
     }
-    for (const sub of toArray((legacySubsRes as any)?.data) as any[]) {
+    for (const sub of toArray(legacySubs) as any[]) {
       if (sub?.user_id) {
         const key = String(sub.user_id);
         if (!subMap.has(key)) subMap.set(key, { ...sub, source: "legacy" });

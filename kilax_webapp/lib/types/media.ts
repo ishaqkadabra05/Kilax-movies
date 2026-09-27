@@ -29,6 +29,7 @@ export interface AppNotification {
   title: string
   body: string
   url?: string | null
+  data?: Record<string, any> | null
   created_at: string
   read_at?: string | null
 }

@@ -57,6 +57,24 @@ export default function NotificationsPage() {
     }
   };
 
+  const getNotificationImage = (notification: AppNotification) => {
+    const text = `${notification.title || ""} ${notification.body || ""}`.toLowerCase();
+    const isActivationNotification =
+      /subscription activated|trial activated|activation|trial active|premium activated/.test(text);
+
+    if (isActivationNotification) return "/logo.png";
+    if (notification.thumbnail && notification.thumbnail.trim()) {
+      const value = notification.thumbnail.trim();
+      if (/^https?:\/\//i.test(value) || value.startsWith("/")) return value;
+    }
+    if (typeof notification.icon === "string" && notification.icon.startsWith("http")) return notification.icon;
+    return "/logo.png";
+  };
+
+  const orderedNotifications = [...notifications].sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+  );
+
   return (
     <main className="min-h-screen bg-[#05070e] px-4 py-12 text-white sm:px-8">
       <div className="mx-auto max-w-3xl">
@@ -77,26 +95,26 @@ export default function NotificationsPage() {
         </div>
         {loading ? <p className="text-gray-400">Loading notifications...</p> : notifications.length === 0 ? <p className="text-gray-400">You have no notifications yet.</p> : (
           <div className="space-y-3">
-            {notifications.map((notification) => (
+            {orderedNotifications.map((notification) => (
               <div key={notification.id} className="flex w-full items-start gap-4 rounded-xl border border-white/10 bg-white/5 p-4">
-                <div className="relative h-16 w-12 shrink-0 overflow-hidden rounded-lg bg-slate-800/80">
-                  {notification.thumbnail ? (
-                    <img src={notification.thumbnail} alt={notification.title} className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-xl">{notification.icon || "🔔"}</div>
-                  )}
-                </div>
                 <button
                   type="button"
                   onClick={() => void openNotification(notification)}
                   className="min-w-0 flex-1 rounded-lg p-1 text-left hover:bg-white/5"
                 >
-                  <span className="flex items-center gap-2 font-semibold">
-                    {notification.title}
-                    {notification.read_at && <Check size={14} className="text-emerald-400" />}
-                  </span>
-                  <span className="mt-1 block text-sm leading-6 text-gray-400">{notification.body}</span>
-                  <span className="mt-2 block text-xs text-gray-600">{new Date(notification.created_at).toLocaleString()}</span>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <span className="flex items-center gap-2 font-semibold">
+                        {notification.title}
+                        {notification.read_at && <Check size={14} className="text-emerald-400" />}
+                      </span>
+                      <span className="mt-1 block text-sm leading-6 text-gray-400">{notification.body}</span>
+                      <span className="mt-2 block text-xs text-gray-600">{new Date(notification.created_at).toLocaleString()}</span>
+                    </div>
+                    <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-slate-800/80">
+                      <img src={getNotificationImage(notification)} alt={notification.title} className="h-full w-full object-cover" />
+                    </div>
+                  </div>
                 </button>
                 {!notification.read_at && (
                   <button

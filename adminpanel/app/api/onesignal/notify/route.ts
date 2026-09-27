@@ -18,9 +18,10 @@ export async function POST(request: NextRequest) {
     await requireAdmin(request);
 
     const body = await request.json().catch(() => ({}));
-    const title   = typeof body.title   === "string" ? body.title.trim()   : "";
-    const message = typeof body.message === "string" ? body.message.trim() : "";
-    const url     = typeof body.url     === "string" ? body.url.trim() || null : null;
+    const title    = typeof body.title    === "string" ? body.title.trim()   : "";
+    const message  = typeof body.message  === "string" ? body.message.trim() : "";
+    const url      = typeof body.url      === "string" ? body.url.trim() || null : null;
+    const imageUrl = typeof body.imageUrl === "string" ? body.imageUrl.trim() || null : null;
     const externalIds: string[] = Array.isArray(body.externalIds)
       ? body.externalIds.filter((id: unknown): id is string => typeof id === "string")
       : [];
@@ -67,6 +68,7 @@ export async function POST(request: NextRequest) {
         title,
         message,
         url: url ?? undefined,
+        imageUrl: imageUrl ?? undefined,
         externalIds: externalIds.length ? externalIds : undefined,
       });
       const recipientCount = Number(pushResult?.recipients ?? 0);
