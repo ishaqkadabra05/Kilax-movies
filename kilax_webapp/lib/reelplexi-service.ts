@@ -463,29 +463,28 @@ class ReelplexiService {
     }
   }
 
-  static async getMovieStream(id: string): Promise<{ stream_url: string; is_embed: boolean; hls_url?: string }> {
-    // The stream endpoint returns both the raw URL and the documented embed URL.
+  static async getMovieStream(id: string): Promise<{ stream_url: string; is_embed: boolean }> {
+    // Use Reelplexi's direct stream URL when present and avoid rotating to HLS/
+    // manifest endpoints that can re-seek or reset playback mid-stream.
     try {
       const response = await this.getJson(`/v1/stream/movie/${encodeURIComponent(id)}`)
       const streamData = response.data || response
-      const hlsUrl = streamData.hls_url || streamData.m3u8_url || streamData.playlist_url || streamData.manifest_url
-      if (hlsUrl) {
-        return { stream_url: hlsUrl, is_embed: false, hls_url: hlsUrl }
-      }
       if (streamData.stream_url) {
         return { stream_url: streamData.stream_url, is_embed: false }
+      }
+      if (streamData.video_url) {
+        return { stream_url: streamData.video_url, is_embed: false }
       }
       if (streamData.embed_url) {
         return { stream_url: streamData.embed_url, is_embed: true }
       }
     } catch {
-      // Older plans may only expose the movie-specific stream endpoint.
       try {
         const response = await this.getJson(`/v1/movies/${encodeURIComponent(id)}/stream`)
         const streamData = response.data || response
-        if (streamData.video_url || streamData.stream_url || streamData.proxy_url) {
+        if (streamData.stream_url || streamData.video_url || streamData.proxy_url) {
           return {
-            stream_url: streamData.video_url || streamData.stream_url || streamData.proxy_url,
+            stream_url: streamData.stream_url || streamData.video_url || streamData.proxy_url,
             is_embed: false,
           }
         }
@@ -513,16 +512,15 @@ class ReelplexiService {
     }
   }
 
-  static async getEpisodeStream(seriesId: string, season: number, episode: number): Promise<{ stream_url: string; is_embed: boolean; hls_url?: string }> {
+  static async getEpisodeStream(seriesId: string, season: number, episode: number): Promise<{ stream_url: string; is_embed: boolean }> {
     try {
       const response = await this.getJson(`/v1/stream/tv/${encodeURIComponent(seriesId)}/${season}/${episode}`)
       const streamData = response.data || response
-      const hlsUrl = streamData.hls_url || streamData.m3u8_url || streamData.playlist_url || streamData.manifest_url
-      if (hlsUrl) {
-        return { stream_url: hlsUrl, is_embed: false, hls_url: hlsUrl }
-      }
       if (streamData.stream_url) {
         return { stream_url: streamData.stream_url, is_embed: false }
+      }
+      if (streamData.video_url) {
+        return { stream_url: streamData.video_url, is_embed: false }
       }
       if (streamData.embed_url) {
         return { stream_url: streamData.embed_url, is_embed: true }

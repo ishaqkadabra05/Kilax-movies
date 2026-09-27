@@ -845,8 +845,11 @@ function SubscriptionsPage() {
   const [editSub, setEditSub] = useState<Subscription | null>(null);
   const [plans, setPlans] = useState<any[]>([]);
   const [error, setError] = useState("");
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<any>(null);
 
-  useEffect(() => {
+  const loadData = () => {
+    setLoading(true);
     Promise.all([
       authedFetch<any[]>("/api/subscriptions"),
       authedFetch<any>("/api/plans"),
@@ -854,13 +857,52 @@ function SubscriptionsPage() {
       setSubs(rows.map((s: any) => ({ id: s.id, email: s.email || s.user_email || s.user_id, plan: s.plan, startDate: s.start_date, endDate: s.end_date, status: s.status })));
       setPlans(planBody.plans || []);
     }).catch(e => { setSubs([]); setError(e instanceof Error ? e.message : "Unable to load subscriptions"); }).finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadData();
   }, []);
 
+  const handleSync = async () => {
+    setSyncing(true);
+    setSyncResult(null);
+    setError("");
+    try {
+      const result = await authedFetch<any>("/api/subscriptions/sync-from-transactions", { 
+        method: "POST",
+        headers: { "Content-Type": "application/json" }
+      });
+      setSyncResult(result);
+      // Reload subscriptions after sync
+      loadData();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Sync failed");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const active = subs.filter(s => s.status === "active");
-  const basic = active.filter(s => s.plan.toLowerCase().startsWith("basic")).length;
-  const standard = active.filter(s => s.plan.toLowerCase().startsWith("standard")).length;
-  const goPlus = active.filter(s => s.plan.toLowerCase().includes("go plus")).length;
-  const premiumTrial = active.filter(s => s.plan.toLowerCase().includes("trial")).length;
+  const basic = active.filter(s => {
+    const planLower = (s.plan || "").toLowerCase();
+    return planLower.includes("basic") && !planLower.includes("trial");
+  }).length;
+  const standard = active.filter(s => {
+    const planLower = (s.plan || "").toLowerCase();
+    return planLower.includes("standard") && !planLower.includes("trial");
+  }).length;
+  const goPlus = active.filter(s => {
+    const planLower = (s.plan || "").toLowerCase();
+    return (planLower.includes("go") && (planLower.includes("plus") || planLower.includes("pro"))) && !planLower.includes("trial");
+  }).length;
+  const starter = active.filter(s => {
+    const planLower = (s.plan || "").toLowerCase();
+    return planLower.includes("starter") && !planLower.includes("trial");
+  }).length;
+  const premiumTrial = active.filter(s => {
+    const planLower = (s.plan || "").toLowerCase();
+    return planLower.includes("trial");
+  }).length;
   const subscriptionPlans = plans.some(p => String(p.display_name || p.name).toLowerCase().includes("go plus")) ? plans : [...plans, { id: "go-plus", name: "Go Plus", display_name: "Go Plus" }];
 
   const handleSave = async (updated: Subscription) => {
@@ -871,11 +913,30 @@ function SubscriptionsPage() {
 
   return (
     <div className="space-y-6">
-      <div><h1 className="text-2xl font-700 text-gray-900">Subscriptions</h1><p className="text-sm text-gray-400">Manage and track subscriber accounts</p></div>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-700 text-gray-900">Subscriptions</h1>
+          <p className="text-sm text-gray-400">Manage and track subscriber accounts</p>
+        </div>
+        <button
+          onClick={handleSync}
+          disabled={syncing}
+          className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 text-white rounded-lg font-600 text-sm transition-colors"
+        >
+          {syncing ? "Syncing..." : "Sync from Transactions"}
+        </button>
+      </div>
       {error && <div className="text-sm text-red-500 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</div>}
+      {syncResult && (
+        <div className="text-sm bg-green-50 border border-green-100 rounded-lg px-3 py-2">
+          <p className="font-600 text-green-700">Sync completed!</p>
+          <p className="text-green-600">Synced: {syncResult.synced} | Skipped: {syncResult.skipped}</p>
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {[
           { label: "Active Subscribers", value: active.length, color: "text-gray-900" },
+          { label: "Kilax Starter", value: starter, color: "text-blue-500" },
           { label: "Basic Premium", value: basic, color: "text-orange-500" },
           { label: "Standard Premium", value: standard, color: "text-orange-600" },
           { label: "Go Plus", value: goPlus, color: "text-violet-600" },

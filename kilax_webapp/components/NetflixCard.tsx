@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { Star } from "lucide-react";
 import { Movie, Series } from "@/lib/supabase";
 import { recordUsageActivity } from "@/lib/usage";
 
@@ -13,6 +14,9 @@ type CatalogMovie = {
   release_date?: string;
   thumbnail_url?: string;
   cover_image_url?: string;
+  score?: number;
+  rating?: number;
+  vote_average?: number;
 };
 
 type NetflixCardProps = {
@@ -48,6 +52,61 @@ export const NetflixCard = ({ content, type, isNonTranslated = false }: NetflixC
       `https://via.placeholder.com/240x360/1f2937/f97316?text=${encodeURIComponent(content.title || '')}`;
   };
 
+  // Get rating from Reelplexi fields and nested rating objects.
+  const getRating = (): number => {
+    const candidates = [
+      (content as any).score,
+      (content as any).rating,
+      (content as any).vote_average,
+      (content as any).imdb_rating,
+      (content as any).imdb_score,
+      (content as any).average_rating,
+      (content as any).ratings?.imdb,
+      (content as any).ratings?.tmdb,
+      (content as any).ratings?.average,
+      (content as any).ratings?.score,
+      (content as any).ratings?.value,
+    ];
+
+    for (const candidate of candidates) {
+      if (candidate === null || candidate === undefined || candidate === '') continue;
+
+      if (typeof candidate === 'number' && Number.isFinite(candidate)) {
+        if (candidate > 0 && candidate <= 10) return Number(candidate.toFixed(1));
+        if (candidate > 10 && candidate <= 100) return Number((candidate / 10).toFixed(1));
+        continue;
+      }
+
+      if (typeof candidate === 'string') {
+        const trimmed = candidate.trim();
+        if (!trimmed || trimmed.toLowerCase() === 'n/a' || trimmed.toLowerCase() === 'nr') continue;
+
+        const normalized = trimmed.replace(/\s+/g, '');
+        if (!/^\d+(?:\.\d+)?(?:\/10|\/100|%)?$/.test(normalized)) continue;
+
+        const numeric = Number(normalized.replace(/%$/, '').replace(/\/10$/, '').replace(/\/100$/, ''));
+        if (!Number.isFinite(numeric) || numeric <= 0) continue;
+
+        if (numeric <= 10) return Number(numeric.toFixed(1));
+        if (numeric <= 100) return Number((numeric / 10).toFixed(1));
+      }
+
+      if (Array.isArray(candidate)) {
+        for (const item of candidate) {
+          const parsed = Array.isArray(item) ? item[0] : item;
+          if (typeof parsed === 'number' && Number.isFinite(parsed)) {
+            if (parsed > 0 && parsed <= 10) return Number(parsed.toFixed(1));
+            if (parsed > 10 && parsed <= 100) return Number((parsed / 10).toFixed(1));
+          }
+        }
+      }
+    }
+
+    return 0;
+  };
+
+  const rating = getRating();
+
   return (
     <div className="group">
       <Link href={getHref()} className="tv-focusable" aria-label={`Open ${content.title || type}`} onClick={recordCardView}>
@@ -72,6 +131,14 @@ export const NetflixCard = ({ content, type, isNonTranslated = false }: NetflixC
           }`}>
             {type === "movie" ? "Movie" : "Series"}
           </div>
+
+          {/* Rating badge - bottom left */}
+          {rating > 0 && (
+            <div className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-black/80 backdrop-blur-sm flex items-center gap-0.5">
+              <Star size={10} className="fill-yellow-400 text-yellow-400" />
+              <span className="text-[10px] font-bold text-white">{rating.toFixed(1)}</span>
+            </div>
+          )}
 
           {/* Description overlay on hover - simplified */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col justify-end p-2">

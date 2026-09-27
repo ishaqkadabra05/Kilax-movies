@@ -2,10 +2,8 @@
 
 import { useEffect, useRef, useState, useCallback } from "react"
 import Artplayer from "artplayer"
-import { isIOSDevice } from "@/lib/device-utils"
 import { EpisodeWithSeason } from '@/lib/supabase'
 import { useAuthCheck } from './AuthRequiredModal'
-import { useDevice } from './DeviceProvider'
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -401,8 +399,6 @@ function ArtPlayerCore({
   useEffect(() => {
     if (!artRef.current) return
 
-    const videoType = resolvedUrl.toLowerCase().includes('.m3u8') ? 'm3u8' : undefined
-
     if (playerRef.current) {
       if (controlsHideTimer.current) {
         clearTimeout(controlsHideTimer.current)
@@ -478,7 +474,6 @@ function ArtPlayerCore({
       lang: 'en',
       moreVideoAttr: { preload: 'metadata', crossOrigin: 'anonymous' } as any,
       fastForward: true,
-      ...(videoType ? { type: videoType } : {}),
       controls: [
         ...(contentType === 'series' && episodes.length > 0 ? [
           {
@@ -695,199 +690,38 @@ function ArtPlayerCore({
   )
 }
 
-// ─── Native HLS player (iOS / Safari) ────────────────────────────────────────
-
-function NativeHLSPlayer({
-  url,
-  poster,
-  title,
-  className,
-  onEnded,
-  onProgress,
-  initialPosition = 0,
-  onLoad,
-  onError,
-  episodes = [],
-  currentEpisodeIndex = -1,
-  onEpisodeSelect,
-  contentType,
-}: ArtPlayerProps) {
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const [showEpisodes, setShowEpisodes] = useState(false)
-  const [isFullscreen, setIsFullscreen] = useState(false)
-  const [streamError, setStreamError]   = useState<string | null>(null)
-
-  useEffect(() => {
-    const h = (e: KeyboardEvent) => {
-      if (showEpisodes && (e.key === 'Escape' || e.key === 'Backspace')) { setShowEpisodes(false); e.preventDefault(); return }
-      if (!showEpisodes && contentType === 'series' && episodes.length > 0 && (e.key === 'e' || e.key === 'E')) setShowEpisodes(true)
-    }
-    window.addEventListener('keydown', h)
-    return () => window.removeEventListener('keydown', h)
-  }, [showEpisodes, contentType, episodes.length])
-
-  useEffect(() => {
-    const onChange = () => setIsFullscreen(!!document.fullscreenElement)
-    document.addEventListener('fullscreenchange', onChange)
-    document.addEventListener('webkitfullscreenchange', onChange)
-    return () => { document.removeEventListener('fullscreenchange', onChange); document.removeEventListener('webkitfullscreenchange', onChange) }
-  }, [])
-
-  useEffect(() => {
-    if (isFullscreen) { document.body.style.overflow = 'hidden'; lockLandscape() }
-    else { document.body.style.overflow = 'auto'; unlockOrientation() }
-  }, [isFullscreen])
-
-  useEffect(() => {
-    const v = videoRef.current
-    if (!v || !url || url === '#') return
-    setStreamError(null)
-    v.load()
-    if (initialPosition > 0 && v.currentTime < 3 && (!Number.isFinite(v.duration) || v.duration > initialPosition + 3)) {
-      v.currentTime = initialPosition
-    }
-    const tryPlay = async () => {
-      try { await v.play() } catch {
-        try { v.muted = true; await v.play() } catch { /* user taps */ }
-      }
-    }
-    void tryPlay()
-  }, [url])
-
-  useEffect(() => {
-    const handlePageExit = () => {
-      const video = videoRef.current
-      if (!video || video.paused || video.ended || video.seeking) return
-      const resumeKey = `kilax-resume:${url}`
-      try { localStorage.setItem(resumeKey, String(Math.floor(video.currentTime))) } catch { /* storage is optional */ }
-      if (document.pictureInPictureElement || !document.pictureInPictureEnabled) {
-        video.pause()
-        return
-      }
-      void video.requestPictureInPicture?.().catch(() => video.pause())
-    }
-    const handleReturn = () => {
-      const video = videoRef.current
-      if (!video || video.seeking || (!video.paused && !video.ended) || video.currentTime > 3) return
-      try {
-        const saved = Number(localStorage.getItem(`kilax-resume:${url}`) || 0)
-        const duration = Number.isFinite(video.duration) ? video.duration : 0
-        if (saved > 0 && saved < duration && video.currentTime < 1) video.currentTime = saved
-      } catch { /* storage is optional */ }
-    }
-    const handleVisibility = () => { if (document.hidden) handlePageExit(); else handleReturn() }
-    document.addEventListener('visibilitychange', handleVisibility)
-    window.addEventListener('pagehide', handlePageExit)
-    window.addEventListener('pageshow', handleReturn)
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibility)
-      window.removeEventListener('pagehide', handlePageExit)
-      window.removeEventListener('pageshow', handleReturn)
-    }
-  }, [url])
-
-  useEffect(() => () => { document.body.style.overflow = 'auto'; unlockOrientation() }, [])
-
-  if (streamError) return (
-    <PlayerShell className={className}>
-      <div className="text-center max-w-md px-4">
-        <p className="text-red-400 mb-2">Stream Error</p>
-        <p className="text-gray-400 text-sm">{streamError}</p>
-      </div>
-    </PlayerShell>
-  )
-
-  return (
-    <div className={`relative w-full ${className ?? ''}`}>
-      <div className="w-full bg-black rounded-lg" style={{ aspectRatio: '16/9' }}>
-        <video
-          ref={videoRef}
-          src={url}
-          poster={poster}
-          title={title}
-          playsInline
-          controls
-          preload="metadata"
-          crossOrigin="anonymous"
-          style={{ width: '100%', height: '100%', display: 'block', objectFit: 'contain' }}
-          onLoadedData={() => onLoad?.()}
-          onTimeUpdate={() => { const video = videoRef.current; if (video) onProgress?.(Math.floor(video.currentTime || 0), Math.floor(video.duration || 0)) }}
-          onEnded={() => onEnded?.()}
-          onError={(e) => {
-            const rawMessage = typeof (e as any)?.target?.error?.message === 'string' ? (e as any).target.error.message.trim() : ''
-            const message = rawMessage && /(stream|limit|premium|trial|subscription|plan|watching|continue)/i.test(rawMessage)
-              ? rawMessage
-              : 'Video failed to load. Please check your connection, refresh the page, or upgrade your plan to continue watching.'
-            setStreamError(message)
-            onError?.(e)
-          }}
-        />
-      </div>
-
-      {/* Logo */}
-      <KilaxLogo />
-
-      {contentType === 'series' && episodes.length > 0 && (
-        <button
-          onClick={() => setShowEpisodes(true)}
-          className="absolute bottom-14 right-3 flex items-center gap-1.5 px-3 py-1.5 rounded text-white text-xs font-medium"
-          style={{ background: 'rgba(249,115,22,0.15)', border: '1px solid rgba(249,115,22,0.35)', backdropFilter: 'blur(4px)' }}
-          aria-label="View episodes"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-            <line x1="9" y1="9" x2="15" y2="9" /><line x1="9" y1="12" x2="15" y2="12" /><line x1="9" y1="15" x2="15" y2="15" />
-          </svg>
-          Episodes
-        </button>
-      )}
-
-      {showEpisodes && contentType === 'series' && episodes.length > 0 && (
-        <EpisodesOverlay
-          episodes={episodes}
-          currentEpisodeIndex={currentEpisodeIndex}
-          isFullscreen={isFullscreen}
-          onClose={() => setShowEpisodes(false)}
-          onSelect={(ep) => { onEpisodeSelect?.(ep); setShowEpisodes(false) }}
-        />
-      )}
-    </div>
-  )
-}
-
 // ─── Public export ────────────────────────────────────────────────────────────
 
 export function ArtPlayer(props: ArtPlayerProps) {
   const { url, poster, title, className, onEnded, onProgress, initialPosition, onLoad, onError, episodes, currentEpisodeIndex, onEpisodeSelect, contentType } = props
-  const device = useDevice()
 
-  const [resolvedUrl, setResolvedUrl]   = useState<string | null>(null)
-  const [formatError, setFormatError]   = useState<string | null>(null)
-  const blobUrlRef = useRef<string | null>(null)
+  const [resolvedUrl, setResolvedUrl] = useState<string | null>(null)
+  const [formatError, setFormatError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!url || url === '#') { setResolvedUrl(null); setFormatError(null); return }
+    if (!url || url === '#') {
+      setResolvedUrl(null)
+      setFormatError(null)
+      return
+    }
 
-    if (blobUrlRef.current) { URL.revokeObjectURL(blobUrlRef.current); blobUrlRef.current = null }
-
-    setFormatError(null)
-
-    if (device.isIOS && url.toLowerCase().includes('.mkv')) {
+    const lowered = url.toLowerCase()
+    if (lowered.includes('.mkv')) {
       setFormatError('MKV format is not supported on iOS. Please use the download option to watch with VLC player.')
       setResolvedUrl(null)
       return
     }
 
+    setFormatError(null)
     setResolvedUrl(url)
-    return () => { if (blobUrlRef.current) { URL.revokeObjectURL(blobUrlRef.current); blobUrlRef.current = null } }
-  }, [url, device.isIOS])
+  }, [url])
 
   if (formatError) return (
     <PlayerShell className={className}>
       <div className="text-center max-w-md px-4">
         <p className="text-red-400 mb-2">Unsupported Video Format</p>
         <p className="text-gray-400 text-sm mb-3">{formatError}</p>
-        <p className="text-gray-500 text-xs">iOS cannot play MKV in-browser. Use the download option to watch with VLC.</p>
+        <p className="text-gray-500 text-xs">Use the download option to watch with VLC.</p>
       </div>
     </PlayerShell>
   )
@@ -900,19 +734,6 @@ export function ArtPlayer(props: ArtPlayerProps) {
       </div>
     </PlayerShell>
   )
-
-  const isHLS = resolvedUrl.toLowerCase().includes('.m3u8')
-
-  if (device.defaultStrategy === 'hls-native' && isHLS) {
-    return (
-      <NativeHLSPlayer
-        url={resolvedUrl} poster={poster} title={title} className={className}
-        onEnded={onEnded} onProgress={onProgress} initialPosition={initialPosition} onLoad={onLoad} onError={onError}
-        episodes={episodes} currentEpisodeIndex={currentEpisodeIndex}
-        onEpisodeSelect={onEpisodeSelect} contentType={contentType}
-      />
-    )
-  }
 
   return (
     <ArtPlayerCore

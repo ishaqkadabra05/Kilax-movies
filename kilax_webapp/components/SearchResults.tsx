@@ -10,6 +10,8 @@ interface SearchResult {
   poster_url?: string;
   release_date?: string;
   rating?: number;
+  score?: number;
+  vote_average?: number;
   type: 'movie' | 'series' | 'anime' | 'english-movie' | 'english-series';
   genre?: string;
   description?: string;
@@ -91,6 +93,9 @@ export function SearchResults({
                 poster_url: item.poster_url,
                 release_date: item.release_date,
                 description: item.description,
+                score: item.score || item.rating,
+                rating: item.rating,
+                vote_average: item.vote_average,
               }}
               type={item.type === 'movie' || item.type === 'english-movie' ? 'movie' : 'series'}
               isNonTranslated={item.type === 'anime' || item.type === 'english-movie' || item.type === 'english-series'}
@@ -137,6 +142,9 @@ export function SearchResults({
                 poster_url: item.poster_url,
                 release_date: item.release_date,
                 description: item.description,
+                score: item.score || item.rating,
+                rating: item.rating,
+                vote_average: item.vote_average,
               }}
               type={item.type === 'movie' || item.type === 'english-movie' ? 'movie' : 'series'}
               isNonTranslated={item.type === 'anime' || item.type === 'english-movie' || item.type === 'english-series'}

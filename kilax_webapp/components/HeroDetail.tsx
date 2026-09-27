@@ -39,6 +39,13 @@ export default function HeroDetail({ title, subtitle, description, score = 0, ye
           {subtitle && <h2 className="text-orange-400 text-xs font-semibold uppercase mb-2 tracking-wide">{subtitle}</h2>}
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4 leading-tight" style={{ color: primaryColor }}>{title}</h1>
           <div className="mb-4 flex flex-wrap items-center gap-3 text-xs sm:text-sm">
+            {score > 0 && (
+              <div className="flex items-center gap-1.5 rounded bg-black/60 backdrop-blur-sm px-3 py-1.5 border border-yellow-400/30">
+                <Star size={16} className="fill-yellow-400 text-yellow-400" />
+                <span className="font-bold text-yellow-400">{score.toFixed(1)}</span>
+                <span className="text-gray-300 text-xs">/10</span>
+              </div>
+            )}
             {displayYear && <span className="rounded bg-gray-800/80 px-2.5 py-1 font-semibold">{displayYear}</span>}
             {vj && <span className="rounded bg-[#1e293b] px-2.5 py-1 font-semibold text-slate-100 shadow-inner shadow-black/30">VJ: {vj}</span>}
           </div>
@@ -58,6 +65,14 @@ export default function HeroDetail({ title, subtitle, description, score = 0, ye
       <div className="hidden lg:flex items-center justify-center w-[360px] xl:w-[420px] flex-shrink-0 relative z-10 pr-10">
         <div className="relative aspect-[2/3] w-64 xl:w-72 rounded-xl overflow-hidden shadow-xl border border-orange-400/60">
           <Image src={coverImage} alt={title} fill className="object-cover object-center" priority />
+          {/* Rating badge on poster */}
+          {score > 0 && (
+            <div className="absolute bottom-3 left-3 px-3 py-2 rounded-lg bg-black/80 backdrop-blur-sm border border-yellow-400/30 flex items-center gap-2">
+              <Star size={18} className="fill-yellow-400 text-yellow-400" />
+              <span className="font-bold text-yellow-400 text-lg">{score.toFixed(1)}</span>
+              <span className="text-gray-300 text-sm">/10</span>
+            </div>
+          )}
         </div>
       </div>
       <div className="pointer-events-none absolute left-0 right-0 bottom-0 h-28 z-20" style={{background:"linear-gradient(180deg, transparent 0%, #09090b 90%)"}} />

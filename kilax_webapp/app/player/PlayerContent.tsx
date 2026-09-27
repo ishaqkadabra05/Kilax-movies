@@ -428,11 +428,7 @@ export default function PlayerContent() {
         // Route to the correct player:
         // • embed.reelplexi.com  → iframe player (VideoPlayer handles this)
         // • anything else        → route through /api/stream proxy (CORS fix)
-        if (videoUrl.includes('embed.reelplexi.com') || videoUrl.includes('embed.')) {
-          setStreamUrl(videoUrl)   // iframe embed
-        } else {
-          setStreamUrl(normalizeVideoUrl(videoUrl))  // proxy for direct streams
-        }
+        setStreamUrl(normalizeVideoUrl(videoUrl))
         setTitle(contentTitle);
         setLoading(false);
 
@@ -565,12 +561,7 @@ export default function PlayerContent() {
       const newIndex = allEpisodes.findIndex(ep => ep.id === episode.id);
       setCurrentEpisodeIndex(newIndex);
 
-      // Update stream URL and title - same routing logic as main player
-      if (videoUrl.includes('embed.reelplexi.com')) {
-        setStreamUrl(videoUrl); // Iframe player
-      } else {
-        setStreamUrl(normalizeVideoUrl(videoUrl)); // Route through /api/stream proxy to handle CORS and authentication
-      }
+      setStreamUrl(normalizeVideoUrl(videoUrl));
       setTitle(`${contentData?.title || 'Series'} - ${episode.seasonName} - ${episode.title}`);
       setSwitchingEpisode(false);
 

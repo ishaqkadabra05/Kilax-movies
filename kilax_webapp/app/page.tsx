@@ -108,12 +108,85 @@ function TikTokIcon({ size=24 }: { size?:number }) {
 }
 
 // ─── Atoms ────────────────────────────────────────────────────────────────────
-function RatingBadge({ r }: { r:string }) {
+function normalizeScoreValue(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null;
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    if (value > 0 && value <= 10) return Number(value.toFixed(1));
+    if (value > 10 && value <= 100) return Number((value / 10).toFixed(1));
+    return null;
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed || trimmed.toLowerCase() === 'n/a' || trimmed.toLowerCase() === 'nr') return null;
+
+    const normalized = trimmed.replace(/\s+/g, '');
+    const isRatingLikeString = /^\d+(?:\.\d+)?(?:\/10|\/100|%)?$/.test(normalized);
+    if (!isRatingLikeString) return null;
+
+    const numeric = Number(normalized.replace(/%$/, '').replace(/\/10$/, '').replace(/\/100$/, ''));
+    if (!Number.isFinite(numeric) || numeric <= 0) return null;
+
+    if (numeric <= 10) return Number(numeric.toFixed(1));
+    if (numeric <= 100) return Number((numeric / 10).toFixed(1));
+    return null;
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const parsed = normalizeScoreValue(item);
+      if (parsed !== null) return parsed;
+    }
+    return null;
+  }
+
+  if (typeof value === 'object') {
+    const nestedKeys = ['value', 'score', 'rating', 'average', 'avg', 'imdb', 'tmdb'];
+    for (const key of nestedKeys) {
+      const parsed = normalizeScoreValue((value as Record<string, unknown>)[key]);
+      if (parsed !== null) return parsed;
+    }
+
+    for (const item of Object.values(value as Record<string, unknown>)) {
+      const parsed = normalizeScoreValue(item);
+      if (parsed !== null) return parsed;
+    }
+  }
+
   return null;
 }
 
+function RatingBadge({ r }: { r:string }) {
+  const score = normalizeScoreValue(r);
+  if (score === null) return null;
+
+  return (
+    <span style={{ display:'inline-flex', alignItems:'center', gap:6, color:'#facc15', fontSize:12, fontWeight:700 }}>
+      <svg width={12} height={12} viewBox="0 0 24 24" fill="#facc15" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>
+      {score.toFixed(1)}
+    </span>
+  );
+}
+
 function StarRating({ score }: { score:number }) {
-  return null;
+  const safeScore = Number.isFinite(score) ? Math.min(Math.max(score, 0), 10) : 0;
+  const filledStars = Math.max(0, Math.min(5, Math.round(safeScore / 2)));
+
+  if (safeScore <= 0) return null;
+
+  return (
+    <div style={{ display:'inline-flex', alignItems:'center', gap:6, color:'#fbbf24' }}>
+      <span aria-label={`Rated ${safeScore.toFixed(1)} out of 10`} style={{ display:'inline-flex', gap:2 }}>
+        {Array.from({ length: 5 }, (_, idx) => (
+          <svg key={idx} width={11} height={11} viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 2.75l2.64 5.36 5.91.86-4.28 4.17 1.01 5.88L12 0.5 6.72 19.22l1.01-5.88L3.45 9.0l5.91-.86L12 2.75z" fill={idx < filledStars ? '#fbbf24' : 'rgba(255,255,255,0.2)'} stroke={idx < filledStars ? '#fbbf24' : 'rgba(255,255,255,0.25)'} strokeWidth="1.5" strokeLinejoin="round" />
+          </svg>
+        ))}
+      </span>
+      <span style={{ color:'#f8fafc', fontSize:12, fontWeight:700 }}>{safeScore.toFixed(1)}</span>
+    </div>
+  );
 }
 
 function BlueBtn({ children, onClick, style }: { children:React.ReactNode; onClick?:()=>void; style?:React.CSSProperties }) {
@@ -673,6 +746,12 @@ function MediaCard({ item, myList, onToggleList, onOpen, inRow=false, listAction
         <img src={poster} alt={item.title} loading="lazy" decoding="async" style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }} onError={()=>setPosterFailed(true)} />
         <div style={{ position:"absolute", inset:0, background:"linear-gradient(to top,rgba(13,17,23,0.98) 0%,rgba(13,17,23,0.16) 58%,transparent 100%)" }} />
         <div style={{ position:"absolute", top:10, left:10, background:item.type==="series"?"rgba(59,130,246,0.88)":"rgba(249,115,22,0.88)", backdropFilter:"blur(6px)", boxShadow:item.type==="series"?"0 0 14px rgba(59,130,246,.7)":"0 0 14px rgba(249,115,22,.7)", color:"#fff", fontSize:9, fontWeight:800, padding:"3px 9px", borderRadius:6 }}>{item.type==="series"?"SERIES":"MOVIE"}</div>
+        {item.score > 0 && (
+          <div style={{ position:"absolute", bottom:10, left:10, background:"rgba(0,0,0,0.8)", backdropFilter:"blur(8px)", color:"#fff", fontSize:mobile?8:9, fontWeight:800, padding:mobile?"3px 6px":"4px 8px", borderRadius:999, border:"1px solid rgba(251,191,36,.3)", display:"flex", alignItems:"center", gap:3 }}>
+            <svg width={mobile?10:11} height={mobile?10:11} viewBox="0 0 24 24" fill="#fbbf24" stroke="#fbbf24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            <span style={{color:"#fbbf24"}}>{item.score.toFixed(1)}</span>
+          </div>
+        )}
         <div style={{ position:"absolute", bottom:10, right:10, background:"rgba(59,130,246,0.84)", color:"#fff", fontSize:mobile?8:9, fontWeight:800, boxShadow:"0 0 14px rgba(59,130,246,.7)", padding:mobile?"3px 6px":"4px 9px", borderRadius:999, border:"1px solid rgba(147,197,253,.4)", maxWidth:mobile?"58%":"70%", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{vj}</div>
       </div>
       <div style={{ padding:"10px 3px 2px", display:"grid", gap:7 }}>
@@ -822,6 +901,13 @@ function HeroSlider({ myList, onToggleList, onInfo, onPlay }: { myList:Set<numbe
         </div>
         <h1 style={{ fontFamily:"'Anton',sans-serif", fontSize:mobile?38:62, color:"white", lineHeight:0.95, marginBottom:14, letterSpacing:"0.01em" }}>{item.title}</h1>
         <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:12, fontSize:12, flexWrap:"wrap" }}>
+          {heroScore > 0 && (
+            <div style={{ display:"flex", alignItems:"center", gap:4, padding:"4px 10px", borderRadius:999, background:"rgba(0,0,0,0.6)", backdropFilter:"blur(10px)", border:"1px solid rgba(251,191,36,0.3)" }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="#fbbf24" stroke="#fbbf24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              <span style={{ color:"#fbbf24", fontWeight:700, fontSize:13 }}>{heroScore.toFixed(1)}</span>
+              <span style={{ color:"#94a3b8", fontSize:11 }}>/10</span>
+            </div>
+          )}
           <span style={{ color:"#94a3b8" }}>{heroYear}</span>
           <span style={{color:"#dfeaff",fontSize:11,fontWeight:700,padding:"3px 9px",borderRadius:999,background:"rgba(30,64,175,0.72)",border:"1px solid rgba(96,165,250,0.35)",boxShadow:"inset 0 1px 0 rgba(255,255,255,0.08)"}}>{item.vj || "VJ"}</span>
         </div>
