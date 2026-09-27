@@ -35,7 +35,12 @@ export async function POST(request: NextRequest) {
     // ── 1. Save notification to Supabase (in-app) ─────────────────────────
     const { data: notification, error: notifError } = await db
       .from("notifications")
-      .insert({ title, body: message, url, data: { source: "admin_panel" } })
+      .insert({
+        title,
+        body: message,
+        url,
+        data: { source: "admin_panel", ...(imageUrl ? { poster_url: imageUrl } : {}) },
+      })
       .select("id")
       .single() as { data: { id: string } | null; error: any };
 

@@ -20,7 +20,11 @@ export async function sendOneSignalNotification(input: {
   };
 
   if (input.url) payload.url = input.url;
-  if (input.imageUrl) payload.big_picture = input.imageUrl;
+  if (input.imageUrl) {
+    payload.big_picture = input.imageUrl;
+    payload.ios_attachments = { poster: input.imageUrl };
+    payload.chrome_web_image = input.imageUrl;
+  }
 
   // Specific users must be targeted with external IDs and the push channel explicitly set.
   if (input.externalIds?.length) {

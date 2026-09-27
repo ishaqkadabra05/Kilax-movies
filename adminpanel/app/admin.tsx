@@ -165,7 +165,7 @@ function ContentPushModal({ item, onClose }: { item: Movie; onClose: () => void 
         </div>
         <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-gray-100 flex-shrink-0">
           <button onClick={onClose} className="px-4 py-2 text-sm font-500 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">Cancel</button>
-          <button onClick={async () => { try { await authedFetch("/api/onesignal/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title, message }) }); onClose(); } catch (e) { alert(e instanceof Error ? e.message : "Notification failed"); } }} className="px-5 py-2 text-sm font-600 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors">Send Notification</button>
+          <button onClick={async () => { try { await authedFetch("/api/onesignal/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title, message, imageUrl: item.thumb || undefined }) }); onClose(); } catch (e) { alert(e instanceof Error ? e.message : "Notification failed"); } }} className="px-5 py-2 text-sm font-600 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors">Send Notification</button>
         </div>
       </div>
     </div>
