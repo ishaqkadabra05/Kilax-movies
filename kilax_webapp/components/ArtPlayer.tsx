@@ -510,9 +510,10 @@ function ArtPlayerCore({
     art.on('error', (error) => {
       console.error('ArtPlayer error:', { error, url: resolvedUrl })
       const message = getStreamErrorMessage(error)
+      const errorType = (error as Error & { type?: string } | null)?.type
       
       // Don't immediately set auth error for network issues - try to recover
-      if (error?.type === 'network' && art.video) {
+      if (errorType === 'network' && art.video) {
         console.log('Network error detected, attempting recovery...')
         // Try to reload the video element without destroying the player
         setTimeout(() => {

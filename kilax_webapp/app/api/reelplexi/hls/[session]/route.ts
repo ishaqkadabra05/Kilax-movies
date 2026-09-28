@@ -9,10 +9,10 @@ import { createClient } from '@supabase/supabase-js'
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { session: string } }
+  { params }: { params: Promise<{ session: string }> }
 ) {
   try {
-    const { session } = params
+    const { session } = await params
     
     if (!session) {
       return NextResponse.json(

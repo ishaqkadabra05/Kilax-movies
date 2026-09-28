@@ -12,10 +12,10 @@ import { createClient } from '@supabase/supabase-js'
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { session: string; file: string } }
+  { params }: { params: Promise<{ session: string; file: string }> }
 ) {
   try {
-    const { session, file } = params
+    const { session, file } = await params
     
     if (!session || !file) {
       return NextResponse.json(
