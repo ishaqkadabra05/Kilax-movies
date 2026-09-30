@@ -4,6 +4,8 @@ export type Page =
   | 'home'
   | 'movies'
   | 'series'
+  | 'livetvs'
+  | 'english'
   | 'subscription'
   | 'mylist'
   | 'profile'

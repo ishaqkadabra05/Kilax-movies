@@ -183,6 +183,28 @@ class ReelplexiService {
     }
   }
 
+  static async getEnglishMovies(endpoint: string, query: Record<string, string> = {}): Promise<any> {
+    const allowedEndpoints = new Set(['search', 'popular', 'trending', 'top-rated', 'now-playing', 'upcoming'])
+    if (!allowedEndpoints.has(endpoint)) throw new Error('Unsupported English movies endpoint')
+    return this.getJson(`/v1/english-movies/${endpoint}`, query)
+  }
+
+  static async getEnglishMovieDetails(id: string, includeDownloads = false): Promise<any> {
+    return this.getJson(`/v1/english-movies/${encodeURIComponent(id)}`, includeDownloads ? { include_downloads: 'true' } : undefined)
+  }
+
+  static async getEnglishMovieDownloads(id: string): Promise<any> {
+    return this.getJson(`/v1/english-movies/${encodeURIComponent(id)}/downloads`)
+  }
+
+  static async getSportsData(endpoint: 'categories' | 'channels' | 'events/live' | 'search', query: Record<string, string> = {}): Promise<any> {
+    return this.getJson(`/v1/sports/${endpoint}`, query)
+  }
+
+  static async getSportsChannel(id: string): Promise<any> {
+    return this.getJson(`/v1/sports/channels/${encodeURIComponent(id)}`)
+  }
+
   private static normalizeMovie(raw: any): ReelplexiMovie {
     const genres = Array.isArray(raw.genres) ? raw.genres.filter((g: any) => g?.toString().trim()) : []
     const vjName = this.extractVjName(raw)

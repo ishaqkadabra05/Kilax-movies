@@ -5,12 +5,14 @@ import { useRouter } from "next/navigation";
 
 import { signInWithEmail, signOut } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
-import { Search, Phone, Bell, X, ChevronLeft, ChevronRight, Plus, Check, Bookmark, Home, Film, Tv2, Heart, History, Smartphone, UserRound, Crown, Library, Flame, Sparkles, Clapperboard, Compass, Share2, Users, Gift, Link2, Play, Clapperboard as ClapperIcon, PlayCircle, Download, MonitorPlay, BellRing } from "lucide-react";
+import { Search, Phone, Bell, X, ChevronLeft, ChevronRight, Plus, Check, Bookmark, Home, Film, Tv2, Globe, Heart, History, Smartphone, UserRound, Crown, Library, Flame, Sparkles, Clapperboard, Compass, Share2, Users, Gift, Link2, Play, Clapperboard as ClapperIcon, PlayCircle, Download, MonitorPlay, BellRing } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import OneSignalPrompt from "@/components/OneSignalPrompt";
 import Footer from "@/components/Footer";
 import RecaptchaGuard, { getRecaptchaToken } from "@/components/RecaptchaGuard";
 import HomeVideoPlayer from "@/components/HomeVideoPlayer";
+import NontranslatedCatalogPage from "@/components/NontranslatedCatalogPage";
+import LiveTVPage from "@/components/LiveTVPage";
 import { PhoneNumberField, PHONE_COUNTRIES, isValidInternationalPhone, normalizeInternationalPhone } from "@/components/PhoneNumberField";
 import { isValidEmail, isValidPassword } from "@/lib/validation";
 import type { AppNotification, AuthMode, Episode, LoginMethod, MediaItem, Page, UserProfile } from "@/lib/types/media";
@@ -765,7 +767,7 @@ function MediaCard({ item, myList, onToggleList, onOpen, inRow=false, listAction
   const { share } = useShareReferral();
 
   return (
-    <div className="card-lift catalog-card" onClick={()=>onOpen(item)} onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)} style={{ flexShrink:0, width:inRow?(mobile?118:150):"100%", minWidth:inRow?(mobile?118:150):0, cursor:"pointer", position:"relative", zIndex:hov?20:1 }}>
+    <div className="card-lift catalog-card" onClick={()=>onOpen(item)} onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)} style={{ flexShrink:0, width:inRow?(mobile?128:160):"100%", minWidth:inRow?(mobile?128:160):0, cursor:"pointer", position:"relative", zIndex:hov?20:1 }}>
       <div style={{ borderRadius:12, overflow:"hidden", background:"#111827", position:"relative", border:"1px solid rgba(59,130,246,.16)", boxShadow:hov?"0 0 22px rgba(59,130,246,.18)":"none", aspectRatio:"2 / 3" }}>
         <img src={poster} alt={item.title} loading="lazy" decoding="async" style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }} onError={()=>setPosterFailed(true)} />
         <div style={{ position:"absolute", inset:0, background:"linear-gradient(to top,rgba(13,17,23,0.98) 0%,rgba(13,17,23,0.16) 58%,transparent 100%)" }} />
@@ -1080,6 +1082,8 @@ function Drawer({ open, onClose, page, setPage, isLoggedIn, user, onAuthOpen }: 
     { icon:Home,       label:"Home",          page:"home" },
     { icon:Film,       label:"Movies",        page:"movies" },
     { icon:Tv2,        label:"Series",        page:"series" },
+    { icon:Tv2,        label:"Live TVs",      page:"livetvs" },
+    { icon:Globe,      label:"Nontranslated", page:"english" },
     { icon:Heart,      label:"My List",       page:"mylist" },
     { icon:History,    label:"Watch History", page:"history" },
     { icon:Smartphone, label:"Get App",       page:"getapp" },
@@ -1087,14 +1091,9 @@ function Drawer({ open, onClose, page, setPage, isLoggedIn, user, onAuthOpen }: 
 
   return (
     <>
-      <div onClick={onClose} style={{ position:"fixed", inset:0, zIndex:58, background:"rgba(0,0,0,0.55)", backdropFilter:"blur(4px)", opacity:open?1:0, pointerEvents:open?"auto":"none", transition:"opacity 0.3s" }} />
-      <div style={{ position:"fixed", top:0, left:0, bottom:0, zIndex:59, width:mobile?280:300, background:"#0a0e1a", borderRight:"1px solid rgba(255,255,255,0.07)", transform:open?"translateX(0)":"translateX(-100%)", transition:"transform 0.3s cubic-bezier(0.4,0,0.2,1)", display:"flex", flexDirection:"column", paddingTop:`env(safe-area-inset-top,0px)`, paddingBottom:`env(safe-area-inset-bottom,0px)`, overflowY:"auto" }}>
-        <div style={{ padding:"20px 20px 16px", borderBottom:"1px solid rgba(255,255,255,0.05)" }}>
-          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:isLoggedIn?16:0 }}>
-            <KilaxLogo height={30} />
-            <button onClick={onClose} style={{ background:"none", border:"none", color:"#64748b", fontSize:18, cursor:"pointer" }}>✕</button>
-          </div>
-        </div>
+      {mobile && <div onClick={onClose} style={{ position:"fixed", inset:0, zIndex:58, background:"rgba(0,0,0,0.55)", backdropFilter:"blur(4px)", opacity:open?1:0, pointerEvents:open?"auto":"none", transition:"opacity 0.3s" }} />}
+      <div style={{ position:"fixed", top:0, left:0, bottom:0, zIndex:59, width:280, background:"#0a0e1a", borderRight:"1px solid rgba(255,255,255,0.07)", transform:mobile&&!open?"translateX(-100%)":"translateX(0)", transition:"transform 0.3s cubic-bezier(0.4,0,0.2,1)", display:"flex", flexDirection:"column", paddingTop:`env(safe-area-inset-top,0px)`, paddingBottom:`env(safe-area-inset-bottom,0px)`, overflowY:"auto" }}>
+        {mobile && <div style={{ display:"flex", justifyContent:"flex-end", padding:"12px 16px 0" }}><button onClick={onClose} aria-label="Close navigation" style={{ background:"none", border:"none", color:"#64748b", fontSize:18, cursor:"pointer" }}>✕</button></div>}
 
         <div style={{ padding:"12px 12px 0" }}>
           <button onClick={()=>{onClose(); window.dispatchEvent(new Event("kilax-open-search"));}} style={{ width:"100%", display:"flex", alignItems:"center", gap:10, padding:"12px 14px", borderRadius:12, background:"rgba(255,255,255,.05)", border:"1px solid rgba(255,255,255,.08)", color:"white", cursor:"pointer", fontWeight:700 }}><Search size={17}/> Search Kilax Movies</button>
@@ -1135,29 +1134,30 @@ function Drawer({ open, onClose, page, setPage, isLoggedIn, user, onAuthOpen }: 
 }
 
 // ─── Navbar ───────────────────────────────────────────────────────────────────
-function Navbar({ page, setPage, scrolled, myListCount, onSearch, onNotif, unreadCount, user, isLoggedIn, onAuthOpen, onDrawer }: { page:Page; setPage:(p:Page)=>void; scrolled:boolean; myListCount:number; onSearch:()=>void; onNotif:()=>void; unreadCount:number; user:UserProfile; isLoggedIn:boolean; onAuthOpen:(m:AuthMode)=>void; onDrawer:()=>void }) {
+function Navbar({ page, setPage, scrolled, myListCount, onSearch, onNotif, unreadCount, user, isLoggedIn, onAuthOpen, onDrawer, drawerVisible }: { page:Page; setPage:(p:Page)=>void; scrolled:boolean; myListCount:number; onSearch:()=>void; onNotif:()=>void; unreadCount:number; user:UserProfile; isLoggedIn:boolean; onAuthOpen:(m:AuthMode)=>void; onDrawer:()=>void; drawerVisible:boolean }) {
   const { mobile } = useResponsive();
 
   const links: { label:string; page:Page }[] = [
     { label:"Home",    page:"home" },
     { label:"Movies",  page:"movies" },
     { label:"Series",  page:"series" },
+    { label:"Live TVs", page:"livetvs" },
     { label:"My List", page:"mylist" },
   ];
 
   return (
-    <nav className="glass navbar-safe" style={{ position:"fixed", top:0, left:0, right:0, zIndex:50, display:"flex", alignItems:"center", justifyContent:"space-between", paddingTop:`env(safe-area-inset-top,0px)`, paddingBottom:0, paddingLeft:mobile?"16px":"24px", paddingRight:mobile?"16px":"48px", minHeight:mobile?"calc(54px + env(safe-area-inset-top,0px))":"calc(66px + env(safe-area-inset-top,0px))", borderBottom:scrolled?"1px solid rgba(255,255,255,0.06)":"1px solid transparent", transition:"all 0.3s", boxSizing:"border-box" }}>
+    <nav className="glass navbar-safe" style={{ position:"fixed", top:0, left:mobile?0:280, right:0, zIndex:50, display:"flex", alignItems:"center", justifyContent:"space-between", paddingTop:`env(safe-area-inset-top,0px)`, paddingBottom:0, paddingLeft:mobile?"16px":"24px", paddingRight:mobile?"16px":"48px", minHeight:mobile?"calc(54px + env(safe-area-inset-top,0px))":"calc(66px + env(safe-area-inset-top,0px))", borderBottom:scrolled?"1px solid rgba(255,255,255,0.06)":"1px solid transparent", transition:"all 0.3s", boxSizing:"border-box" }}>
       <div style={{ display:"flex", alignItems:"center", gap:mobile?10:16 }}>
-        <button onClick={onDrawer} style={{ background:"none", border:"none", cursor:"pointer", color:"#94a3b8", padding:"6px", display:"flex", flexDirection:"column", gap:4, alignItems:"center" }}>
+        <button onClick={onDrawer} aria-label="Open navigation" style={{ background:"none", border:"none", cursor:"pointer", color:"#94a3b8", padding:"6px", display:mobile?"flex":"none", flexDirection:"column", gap:4, alignItems:"center" }}>
           <div style={{ width:20, height:2, background:"#94a3b8", borderRadius:1 }} />
           <div style={{ width:20, height:2, background:"#94a3b8", borderRadius:1 }} />
           <div style={{ width:20, height:2, background:"#94a3b8", borderRadius:1 }} />
         </button>
-        <button className="navbar-brand hide-mobile" onClick={()=>setPage("home")} style={{ background:"none", border:"none", cursor:"pointer", padding:0, display:"flex", alignItems:"center" }}>
+        {!drawerVisible && <button className="navbar-brand" onClick={()=>setPage("home")} style={{ background:"none", border:"none", cursor:"pointer", padding:0, display:"flex", alignItems:"center" }}>
           <div style={{ background:"white", borderRadius:7, padding:mobile?"3px 8px":"4px 10px", display:"flex", alignItems:"center", boxShadow:"0 2px 10px rgba(0,0,0,0.3)" }}>
             <img src="/logo.png" alt="Kilax Movies" style={{ height:mobile?28:36, objectFit:"contain", display:"block" }} />
           </div><span style={{color:"white",fontWeight:800,fontSize:mobile?14:17,whiteSpace:"nowrap",marginLeft:mobile?4:8}}>Kilax Movies</span>
-        </button>
+        </button>}
       </div>
 
       {!mobile && (
@@ -2331,6 +2331,7 @@ function ShareEarnModal({ link, busy, onClose, onShare, onCopy }: { link:string;
 
 // ─── Root App ─────────────────────────────────────────────────────────────────
 export default function App() {
+  const { mobile } = useResponsive();
   const { catalog, ready: catalogReady, error: catalogError } = useCatalogLoader(allMedia);
   mediaCatalog = catalog;
 
@@ -2348,6 +2349,8 @@ export default function App() {
       home: "/",
       movies: "/?page=movies",
       series: "/?page=series",
+      livetvs: "/?page=livetvs",
+      english: "/?page=english",
       subscription: "/?page=subscription",
       mylist: "/?page=mylist",
       profile: "/?page=profile",
@@ -2444,7 +2447,7 @@ export default function App() {
         return;
       }
 
-      const nextPage = requestedPage === "movies" || requestedPage === "series" || requestedPage === "mylist" || requestedPage === "profile" || requestedPage === "history" || requestedPage === "getapp" || requestedPage === "subscription" ? requestedPage
+      const nextPage = requestedPage === "tvshows" ? "livetvs" : requestedPage === "movies" || requestedPage === "series" || requestedPage === "livetvs" || requestedPage === "english" || requestedPage === "mylist" || requestedPage === "profile" || requestedPage === "history" || requestedPage === "getapp" || requestedPage === "subscription" ? requestedPage
         : pathname === "/movies" || pathname === "/series" ? "home"
         : pathname === "/subscribe" || pathname === "/subscription" ? "profile"
         : pathname === "/mylist" ? "mylist"
@@ -2528,7 +2531,17 @@ export default function App() {
   },[]);
 
 
-  const refreshSubscription = useCallback(async()=>{ const {data:{session}}=await supabase.auth.getSession(); if(!session?.access_token) return; try{const r=await fetch("/api/subscription/status",{headers:{Authorization:`Bearer ${session.access_token}`},cache:"no-store"}); if(r.ok){const d=await r.json();setSubscriptionPlan(d.plan||"free");setIsPremium(!!d.isActive);}}catch{} },[]);
+  const refreshSubscription = useCallback(async()=>{
+    try {
+      const {data:{session}}=await supabase.auth.getSession();
+      if(!session?.access_token){setSubscriptionPlan("free");setIsPremium(false);return;}
+      const response=await fetch("/api/subscription/status",{headers:{Authorization:`Bearer ${session.access_token}`},cache:"no-store"});
+      if(response.ok){const data=await response.json();setSubscriptionPlan(data.plan||"free");setIsPremium(!!data.isActive);}
+      else {setSubscriptionPlan("free");setIsPremium(false);}
+    } catch {
+      setSubscriptionPlan("free");setIsPremium(false);
+    }
+  },[]);
   useEffect(()=>{refreshSubscription()},[refreshSubscription,isLoggedIn]);
   const refreshFreeAllowance = useCallback(async()=>{ const {data:{session}}=await supabase.auth.getSession(); if(!session?.access_token) return; try{const r=await fetch("/api/free-allowance",{headers:{Authorization:`Bearer ${session.access_token}`},cache:"no-store"}); if(r.ok)setFreeAllowance(await r.json());}catch{} },[]);
   useEffect(()=>{if(isLoggedIn&&!isPremium)refreshFreeAllowance()},[isLoggedIn,isPremium,refreshFreeAllowance]);
@@ -2784,6 +2797,7 @@ export default function App() {
 
       <Navbar
         page={page} setPage={updatePage} scrolled={scrolled}
+        drawerVisible={!mobile || drawerOpen}
         myListCount={myList.size}
         onSearch={()=>{ setSearchOpen(o=>!o); setNotifOpen(false); }}
         onNotif={()=>{ setNotifOpen(o=>!o); setSearchOpen(false); }}
@@ -2792,11 +2806,13 @@ export default function App() {
         onDrawer={()=>setDrawerOpen(o=>!o)}
       />
 
-      <div style={{ height:"100%", overflowY:"auto" }}
+      <div style={{ height:"100%", overflowY:"auto", marginLeft:mobile?0:280 }}
         onScroll={e=>{ setScrolled(e.currentTarget.scrollTop>60); setNotifOpen(false); }}>
         {page==="home"         && <HomePage         myList={myList} onToggleList={toggleList} onOpen={m=>setModal(m)} onPlay={handlePlay} watchHistory={watchHistory} onSeeMore={openCatalogPreset} loading={!catalogReady} />}
         {page==="movies"       && <CatalogPage      type="movie" title={catalogPreset.latest ? "Latest Movies" : catalogPreset.genre ? `${catalogPreset.genre} Movies` : "Movies"} accentColor={BLUE} myList={myList} onToggleList={toggleList} onOpen={m=>setModal(m)} initialGenre={catalogPreset.genre || "All"} initialFilter={catalogPreset.latest ? "latest" : "all"} />}
         {page==="series"       && <CatalogPage      type="series" title={catalogPreset.latest ? "Latest Series" : catalogPreset.genre ? `${catalogPreset.genre} Series` : "Series"} accentColor={ORANGE} myList={myList} onToggleList={toggleList} onOpen={m=>setModal(m)} initialGenre={catalogPreset.genre || "All"} initialFilter={catalogPreset.latest ? "latest" : "all"} />}
+        {page==="livetvs"     && <LiveTVPage />}
+        {page==="english"     && <NontranslatedCatalogPage />}
         {page==="subscription" && <SubscriptionPage onSuccess={()=>{setIsPremium(true);refreshSubscription();updatePage("profile");}} />}
         {page==="mylist"       && <MyListPage       myList={myList} onToggleList={toggleList} onOpen={m=>setModal(m)} />}
         {page==="profile"      && <ProfilePage      user={user} setUser={setUser} isPremium={isPremium} subscriptionPlan={subscriptionPlan} myListCount={myList.size} setPage={updatePage} onSignOut={handleSignOut} />}

@@ -135,8 +135,8 @@ export default function AdminUsagePage() {
       </section>
 
       {reelplexi && <section style={styles.panel}>
-        <h2 style={styles.subheading}>Reelplexi content views</h2>
-        <p style={styles.muted}>View counts reported by Reelplexi for the last 30 days.</p>
+        <h2 style={styles.subheading}>Kilax content views</h2>
+        <p style={styles.muted}>View counts for Kilax movies and series over the last 30 days.</p>
         <div style={styles.analyticsColumns}>
           <AnalyticsList heading="Top movies" items={reelplexi.top_movies} />
           <AnalyticsList heading="Top series" items={reelplexi.top_series} />
@@ -174,7 +174,7 @@ function Metric({ label, value, detail }: { label: string; value: number; detail
 function AnalyticsList({ heading, items }: { heading: string; items: ReelplexiContentMetric[] }) {
   return <div><h3 style={styles.listHeading}>{heading}</h3><ol style={styles.list}>
     {items.map((item) => <li key={item.id} style={styles.listItem}><span>{item.title}</span><strong>{item.view_count.toLocaleString()}</strong></li>)}
-    {!items.length && <li style={styles.small}>No Reelplexi analytics available.</li>}
+    {!items.length && <li style={styles.small}>No viewing data available.</li>}
   </ol></div>
 }
 

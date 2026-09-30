@@ -31,7 +31,8 @@ import {
 
 /* ── nav items ──────────────────────────────────────────────── */
 const leftNavItems = [
-  { href: "/non-translated", label: "Non Translated", icon: Globe },
+  { href: "/?page=livetvs", label: "Live TVs", icon: Tv2 },
+  { href: "/?page=english", label: "Nontranslated", icon: Globe },
 ];
 
 /* ── theme option list ──────────────────────────────────────── */
@@ -317,13 +318,9 @@ export default function Header() {
       >
 
         {/* Drawer header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
-          <Link href="/" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-2.5">
-            <Image src="/logo.png" alt="Kilax" width={32} height={32}
-              className="w-8 h-8 object-contain rounded-lg" />
-            <span className="text-white font-bold text-base tracking-wide">Kilax</span>
-          </Link>
+        <div className="flex items-center justify-end px-5 py-4 border-b border-white/10">
           <button onClick={() => setIsMenuOpen(false)}
+            aria-label="Close navigation"
             className="p-1.5 rounded-lg hover:bg-gray-800 transition-colors text-gray-400 hover:text-white">
             <X className="w-5 h-5" />
           </button>
