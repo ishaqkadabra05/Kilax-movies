@@ -1,13 +1,13 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-import { isStandardPlanName } from '@/lib/isStandardPremium'
+import { isEligibleStreamingPlanName } from '@/lib/isStandardPremium'
 import { supabaseAdmin } from '@/lib/supabase'
 
-type StandardAccessResult =
+type StreamingAccessResult =
   | { allowed: true; userId: string }
   | { allowed: false; response: NextResponse }
 
-export async function requireStandardAccess(request: Request): Promise<StandardAccessResult> {
+export async function requireStreamingPackageAccess(request: Request): Promise<StreamingAccessResult> {
   const authorization = request.headers.get('authorization') || ''
   const token = authorization.startsWith('Bearer ') ? authorization.slice(7) : ''
   if (!token) {
@@ -44,11 +44,11 @@ export async function requireStandardAccess(request: Request): Promise<StandardA
   }
 
   const expiry = profile?.subscription_expiry_date ? new Date(profile.subscription_expiry_date).getTime() : 0
-  const activeStandard = isStandardPlanName(profile?.subscription) && Number.isFinite(expiry) && expiry > Date.now()
-  if (!activeStandard) {
+  const activeEligiblePlan = isEligibleStreamingPlanName(profile?.subscription) && Number.isFinite(expiry) && expiry > Date.now()
+  if (!activeEligiblePlan) {
     return {
       allowed: false,
-      response: NextResponse.json({ error: 'An active Standard plan is required to access this content.', code: 'STANDARD_PLAN_REQUIRED' }, { status: 403 }),
+      response: NextResponse.json({ error: 'An active paid package other than Basic is required to access this content.', code: 'ELIGIBLE_PLAN_REQUIRED' }, { status: 403 }),
     }
   }
 

@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server'
 import ReelplexiService from '@/lib/reelplexi-service'
-import { requireStandardAccess } from '@/lib/require-standard-access'
+import { requireStreamingPackageAccess } from '@/lib/require-standard-access'
 import { FREE_LIVE_CHANNEL_IDS } from '@/lib/live-tv-access'
 
 export async function GET(request: Request, { params }: { params: Promise<{ channelId: string }> }) {
   try {
     const { channelId } = await params
     if (!FREE_LIVE_CHANNEL_IDS.has(channelId.toLowerCase())) {
-      const access = await requireStandardAccess(request)
+      const access = await requireStreamingPackageAccess(request)
       if (!access.allowed) return access.response
     }
     const channel = await ReelplexiService.getSportsChannel(channelId)

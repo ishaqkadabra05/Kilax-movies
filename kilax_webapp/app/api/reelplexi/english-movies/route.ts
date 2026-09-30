@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import ReelplexiService from '@/lib/reelplexi-service'
-import { requireStandardAccess } from '@/lib/require-standard-access'
+import { requireStreamingPackageAccess } from '@/lib/require-standard-access'
 
 const playbackFields = new Set(['stream_url', 'embed_url', 'video_url', 'playback_url'])
 
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     const params = request.nextUrl.searchParams
     const playback = params.get('playback') === 'true'
     if (playback) {
-      const access = await requireStandardAccess(request)
+      const access = await requireStreamingPackageAccess(request)
       if (!access.allowed) return access.response
     }
 

@@ -6,6 +6,12 @@ export function isStandardPlanName(value: string | null | undefined) {
   return plan === 'standard' || plan === 'standardpremium';
 }
 
+export function isEligibleStreamingPlanName(value: string | null | undefined) {
+  const plan = String(value || '').toLowerCase().replace(/[_\s-]/g, '');
+  if (!plan || ['free', 'trial', 'guest', 'none'].some(ineligible => plan.startsWith(ineligible))) return false;
+  return !plan.startsWith('basic');
+}
+
 export function isStandardPremium(subscription: Subscription | null) {
   if (!subscription) {
     console.log('isStandardPremium: No subscription found');
