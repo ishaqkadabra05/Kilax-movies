@@ -954,16 +954,157 @@ function SubscriptionsPage() {
 }
 
 // ── Plans Page ─────────────────────────────────────────────────────────────
+type PlanData = {
+  id?: string;
+  name: string;
+  tier: string;
+  duration: string;
+  duration_in_days: number | null;
+  duration_in_months: number | null;
+  duration_in_hours: number | null;
+  amount: number;
+  currency: string;
+  description: string;
+  recommended: boolean;
+  active: boolean;
+  stream_limit: number | null;
+  download_limit: number | null;
+  limit_window_hours: number;
+  savings_percent: number;
+  tier_label: string;
+  badge: string;
+  sort_order: number;
+};
+
+const EMPTY_PLAN: PlanData = {
+  name: "",
+  tier: "basic",
+  duration: "",
+  duration_in_days: null,
+  duration_in_months: null,
+  duration_in_hours: null,
+  amount: 0,
+  currency: "UGX",
+  description: "",
+  recommended: false,
+  active: true,
+  stream_limit: null,
+  download_limit: null,
+  limit_window_hours: 24,
+  savings_percent: 0,
+  tier_label: "",
+  badge: "",
+  sort_order: 0,
+};
+
+function PlanFormModal({ plan, onClose, onSave }: { plan: PlanData; onClose: () => void; onSave: (plan: PlanData) => Promise<void> }) {
+  const [form, setForm] = useState<PlanData>(plan);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const setField = <K extends keyof PlanData>(key: K, value: PlanData[K]) => setForm(current => ({ ...current, [key]: value }));
+  const numberInput = (key: "duration_in_days" | "duration_in_months" | "duration_in_hours" | "amount" | "stream_limit" | "download_limit" | "limit_window_hours" | "savings_percent" | "sort_order", label: string, nullable = false, min = 0, step = "1") => (
+    <label className="block text-sm font-500 text-gray-700">
+      <span className="mb-1 block">{label}</span>
+      <input type="number" min={min} step={step} value={form[key] ?? ""} onChange={event => setField(key, event.target.value === "" && nullable ? null as PlanData[typeof key] : Number(event.target.value) as PlanData[typeof key])} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400" />
+    </label>
+  );
+
+  const submit = async () => {
+    setSaving(true);
+    setError("");
+    try { await onSave(form); }
+    catch (caught) { setError(caught instanceof Error ? caught.message : "Unable to save plan"); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[92vh] flex flex-col">
+        <div className="flex items-center justify-between p-5 border-b border-gray-100">
+          <h2 className="text-base font-700 text-gray-900">{plan.id ? "Edit Plan" : "Add Plan"}</h2>
+          <button onClick={onClose} aria-label="Close" className="text-gray-400 hover:text-gray-600 p-1"><Ic.x /></button>
+        </div>
+        <div className="p-5 overflow-y-auto space-y-4">
+          {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <label className="block text-sm font-500 text-gray-700">Plan name<input value={form.name} onChange={event => setField("name", event.target.value)} required className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" /></label>
+            <label className="block text-sm font-500 text-gray-700">Tier<select value={form.tier} onChange={event => setField("tier", event.target.value)} className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"><option value="basic">Basic</option><option value="standard">Standard</option><option value="pro">Pro</option></select></label>
+            <label className="block text-sm font-500 text-gray-700">Duration label<input value={form.duration} onChange={event => setField("duration", event.target.value)} placeholder="e.g. One month" required className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" /></label>
+            {numberInput("amount", "Price", false, 0, "0.01")}
+            <label className="block text-sm font-500 text-gray-700">Currency<input value={form.currency} onChange={event => setField("currency", event.target.value.toUpperCase())} className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" /></label>
+            {numberInput("duration_in_days", "Duration in days", true, 1)}
+            {numberInput("duration_in_months", "Duration in months", true, 0.01, "0.01")}
+            {numberInput("duration_in_hours", "Duration in hours", true, 1)}
+          </div>
+          <div className="border-t border-gray-100 pt-4">
+            <h3 className="text-sm font-700 text-gray-800 mb-3">Usage limits</h3>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              {numberInput("stream_limit", "Streams per window", true)}
+              {numberInput("download_limit", "Downloads per window", true)}
+              {numberInput("limit_window_hours", "Window (hours)", false, 1)}
+            </div>
+            <p className="text-xs text-gray-400 mt-2">Leave a stream or download limit blank for unlimited usage.</p>
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <label className="block text-sm font-500 text-gray-700">Tier label<input value={form.tier_label} onChange={event => setField("tier_label", event.target.value)} className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" /></label>
+            <label className="block text-sm font-500 text-gray-700">Badge<input value={form.badge} onChange={event => setField("badge", event.target.value)} className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" /></label>
+            {numberInput("savings_percent", "Savings percent", false, 0, "0.01")}
+            {numberInput("sort_order", "Display order")}
+          </div>
+          <label className="block text-sm font-500 text-gray-700">Description<textarea value={form.description} onChange={event => setField("description", event.target.value)} rows={2} className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-y" /></label>
+          <div className="flex flex-wrap gap-6 text-sm text-gray-700">
+            <label className="flex items-center gap-2"><input type="checkbox" checked={form.recommended} onChange={event => setField("recommended", event.target.checked)} className="accent-orange-500" />Recommended</label>
+            <label className="flex items-center gap-2"><input type="checkbox" checked={form.active} onChange={event => setField("active", event.target.checked)} className="accent-orange-500" />Active</label>
+          </div>
+        </div>
+        <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-gray-100">
+          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg">Cancel</button>
+          <button onClick={submit} disabled={saving || !form.name.trim() || !form.duration.trim()} className="px-5 py-2 text-sm font-600 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50">{saving ? "Saving…" : "Save Plan"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function PlansPage() {
   const [plans, setPlans] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [editingPlan, setEditingPlan] = useState<PlanData | null>(null);
+  const [notice, setNotice] = useState("");
+
+  const loadPlans = async () => {
+    const body = await authedFetch<any>("/api/plans?include_inactive=true");
+    setPlans(body.plans || []);
+  };
 
   useEffect(() => {
-    authedFetch<any>("/api/plans").then(body => setPlans(body.plans || []))
-      .catch(e => setError(e instanceof Error ? e.message : "Unable to load plans"))
+    loadPlans().catch(e => setError(e instanceof Error ? e.message : "Unable to load plans"))
       .finally(() => setLoading(false));
   }, []);
+
+  const savePlan = async (plan: PlanData) => {
+    await authedFetch("/api/plans", {
+      method: plan.id ? "PATCH" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(plan),
+    });
+    await loadPlans();
+    setEditingPlan(null);
+    setNotice("Plan saved");
+    window.setTimeout(() => setNotice(""), 2500);
+  };
+
+  const deletePlan = async (plan: any) => {
+    if (!window.confirm(`Delete ${plan.name}? Plans with subscription or transaction history must be deactivated instead.`)) return;
+    setError("");
+    try {
+      await authedFetch(`/api/plans?id=${encodeURIComponent(plan.id)}`, { method: "DELETE" });
+      await loadPlans();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Unable to delete plan");
+    }
+  };
 
   const basic    = plans.filter(p => String(p.tier || p.name || "").toLowerCase().includes("basic") && !String(p.tier || p.name || "").toLowerCase().includes("pro") && !String(p.tier || p.name || "").toLowerCase().includes("standard"));
   const standard = plans.filter(p => String(p.tier || p.name || "").toLowerCase().includes("standard"));
@@ -990,22 +1131,24 @@ function PlansPage() {
         </div>
         <div className="divide-y divide-gray-50 flex-1">
           {rows.map((p, i) => (
-            <div key={p.id} className={`flex items-center justify-between px-5 py-3.5 ${i % 2 ? "bg-gray-50/30" : ""}`}>
+            <div key={p.id} className={`flex items-center justify-between gap-3 px-5 py-3.5 ${i % 2 ? "bg-gray-50/30" : ""}`}>
               <div className="flex items-center gap-3">
                 <span className={`w-6 h-6 rounded-full text-xs font-700 flex items-center justify-center flex-shrink-0 ${s.dot}`}>{i + 1}</span>
                 <div>
-                  <span className="text-sm font-600 text-gray-800">
-                    UGX {Number(p.amount ?? 0).toLocaleString()}
-                  </span>
+                  <span className="text-sm font-600 text-gray-800">{p.name} · {p.currency || "UGX"} {Number(p.amount ?? 0).toLocaleString()}</span>
                   <span className="ml-2 text-xs text-gray-400">
-                    {p.duration_in_days ?? p.duration_days ?? p.duration ?? "—"} days
+                    {p.duration_in_days ?? p.duration_days ?? p.duration ?? "—"}{p.duration_in_days ? " days" : ""}
                   </span>
+                  {!p.active && <span className="ml-2 text-[10px] font-700 uppercase text-red-600">Inactive</span>}
                   {p.description ? <p className="text-xs text-gray-400 mt-0.5">{p.description}</p> : null}
+                  <p className="text-xs text-gray-500 mt-1">Streams: {p.stream_limit ?? "Unlimited"} · Downloads: {p.download_limit ?? "Unlimited"} per {p.limit_window_hours ?? 24}h</p>
                 </div>
               </div>
-              {p.recommended && tier !== "Standard" && (
-                <span className={`text-[10px] font-700 px-2 py-0.5 rounded-full ${s.badge}`}>Recommended</span>
-              )}
+              <div className="flex items-center gap-2 shrink-0">
+                {p.recommended && <span className="text-[10px] font-700 px-2 py-0.5 rounded-full bg-green-100 text-green-700">Recommended</span>}
+                <button title="Edit plan" aria-label={`Edit ${p.name}`} onClick={() => setEditingPlan({ ...EMPTY_PLAN, ...p, tier: String(p.tier).toLowerCase(), duration_in_days: p.duration_in_days ?? p.duration_days ?? null, duration_in_months: p.duration_in_months ?? p.duration_months ?? null, duration_in_hours: p.duration_in_hours ?? p.duration_hours ?? null, tier_label: p.tier_label ?? "", badge: p.badge ?? "" })} className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg"><Ic.edit /></button>
+                <button title="Delete plan" aria-label={`Delete ${p.name}`} onClick={() => deletePlan(p)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg"><Ic.trash /></button>
+              </div>
             </div>
           ))}
         </div>
@@ -1020,10 +1163,15 @@ function PlansPage() {
 
   return (
     <div className="space-y-6">
-      <div>
+      {notice && <div role="status" className="fixed top-5 right-5 z-[70] bg-gray-900 text-white px-4 py-3 rounded-xl shadow-xl text-sm font-600">{notice}</div>}
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div>
         <h1 className="text-2xl font-700 text-gray-900">Subscription Plans</h1>
         <p className="text-sm text-gray-400">{plans.length} plans across {[basic, standard, pro].filter(g => g.length > 0).length} tiers — fetched from Supabase</p>
+        </div>
+        <button onClick={() => setEditingPlan({ ...EMPTY_PLAN })} className="flex items-center gap-2 px-4 py-2.5 text-sm font-600 bg-orange-500 text-white rounded-lg hover:bg-orange-600"><Ic.plus /> Add Plan</button>
       </div>
+      {error && <div role="alert" className="border border-red-200 bg-red-50 px-4 py-3 rounded-lg text-sm text-red-700">{error}</div>}
       {loading ? (
         <div className="text-center py-16 text-gray-400">Loading plans…</div>
       ) : error ? (
@@ -1054,6 +1202,7 @@ function PlansPage() {
           </div>
         </>
       )}
+      {editingPlan && <PlanFormModal plan={editingPlan} onClose={() => setEditingPlan(null)} onSave={savePlan} />}
     </div>
   );
 }
