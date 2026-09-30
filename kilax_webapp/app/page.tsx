@@ -1093,7 +1093,10 @@ function Drawer({ open, onClose, page, setPage, isLoggedIn, user, onAuthOpen }: 
     <>
       {mobile && <div onClick={onClose} style={{ position:"fixed", inset:0, zIndex:58, background:"rgba(0,0,0,0.55)", backdropFilter:"blur(4px)", opacity:open?1:0, pointerEvents:open?"auto":"none", transition:"opacity 0.3s" }} />}
       <div style={{ position:"fixed", top:0, left:0, bottom:0, zIndex:59, width:280, background:"#0a0e1a", borderRight:"1px solid rgba(255,255,255,0.07)", transform:mobile&&!open?"translateX(-100%)":"translateX(0)", transition:"transform 0.3s cubic-bezier(0.4,0,0.2,1)", display:"flex", flexDirection:"column", paddingTop:`env(safe-area-inset-top,0px)`, paddingBottom:`env(safe-area-inset-bottom,0px)`, overflowY:"auto" }}>
-        {mobile && <div style={{ display:"flex", justifyContent:"flex-end", padding:"12px 16px 0" }}><button onClick={onClose} aria-label="Close navigation" style={{ background:"none", border:"none", color:"#64748b", fontSize:18, cursor:"pointer" }}>✕</button></div>}
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, padding:"16px 16px 12px", borderBottom:"1px solid rgba(255,255,255,0.05)" }}>
+          <KilaxLogo height={28} />
+          {mobile && <button onClick={onClose} aria-label="Close navigation" style={{ background:"none", border:"none", color:"#64748b", fontSize:18, cursor:"pointer", flexShrink:0 }}>✕</button>}
+        </div>
 
         <div style={{ padding:"12px 12px 0" }}>
           <button onClick={()=>{onClose(); window.dispatchEvent(new Event("kilax-open-search"));}} style={{ width:"100%", display:"flex", alignItems:"center", gap:10, padding:"12px 14px", borderRadius:12, background:"rgba(255,255,255,.05)", border:"1px solid rgba(255,255,255,.08)", color:"white", cursor:"pointer", fontWeight:700 }}><Search size={17}/> Search Kilax Movies</button>

@@ -153,7 +153,7 @@ export default function NontranslatedCatalogPage() {
           {feeds.map(value => <button key={value} onClick={() => { setFeed(value); setMoviePage(1); setSubmittedQuery(""); }} className={`rounded-md border px-3 py-2 text-xs font-semibold capitalize ${feed === value && !submittedQuery ? "border-emerald-300 bg-emerald-300 text-black" : "border-white/10 text-slate-400 hover:text-white"}`}>{value.replaceAll("-", " ")}</button>)}
         </div>
         {movieLoading ? <div className="grid min-h-48 place-items-center text-sm text-slate-500">Loading English movies…</div> : movieError ? <p role="alert" className="py-10 text-center text-sm text-rose-300">{movieError}</p> : movies.length ? <>
-          <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7">
+          <div className="nontranslated-poster-grid grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7">
             {movies.map(movie => <article key={movie.id} className="group min-w-0">
               <Link href={`/nontranslated/movies/${movie.id}`} aria-label={`View details for ${movie.title}`} className="block"><PosterTile title={movie.title} image={movie.poster_url || movie.backdrop_url} subtitle={`${String(movie.release_date || "").slice(0, 4)}${movie.vote_average ? ` · ${Number(movie.vote_average).toFixed(1)}` : ""}`} /></Link>
               <button onClick={() => showDownloads(movie)} className="mt-2 w-full rounded-md border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-xs font-bold text-emerald-200 transition hover:bg-emerald-400/20">Download options</button>
@@ -166,7 +166,7 @@ export default function NontranslatedCatalogPage() {
       <section aria-labelledby="english-series-heading" className="border-t border-white/10 pt-8">
         <div className="mb-5 flex items-end justify-between gap-4"><div><h2 id="english-series-heading" className="text-2xl font-bold text-white">English Series</h2><p className="mt-1 text-sm text-slate-400">English-language series without VJ translation</p></div></div>
         {seriesLoading ? <div className="grid min-h-40 place-items-center text-sm text-slate-500">Loading English series…</div> : seriesError ? <p role="alert" className="py-10 text-center text-sm text-rose-300">{seriesError}</p> : series.length ? <>
-          <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7">
+          <div className="nontranslated-poster-grid grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7">
             {series.map(item => <PosterTile key={item.id} title={item.title || item.name || "Untitled"} image={item.poster_url || item.thumbnail_url || item.cover_image_url} subtitle={String(item.first_air_date || "").slice(0, 4)} />)}
           </div>
           <div className="mt-7 flex items-center justify-center gap-4"><button disabled={seriesPage <= 1} onClick={() => setSeriesPage(value => Math.max(1, value - 1))} className="rounded-md border border-white/10 px-3 py-2 text-xs font-bold text-slate-300 disabled:opacity-40">Previous</button><span className="text-xs text-slate-500">Page {seriesPage}</span><button disabled={!seriesHasMore} onClick={() => setSeriesPage(value => value + 1)} className="rounded-md border border-white/10 px-3 py-2 text-xs font-bold text-slate-300 disabled:opacity-40">Next</button></div>
