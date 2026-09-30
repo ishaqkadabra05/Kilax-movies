@@ -31,6 +31,7 @@ import { randomDicebearAvatar } from "@/lib/avatar";
 // Do NOT add hardcoded TMDB IDs here. They conflict with Reelplexi's string
 // IDs and cause phantom movie cards for content that isn't on the platform.
 const allMedia: MediaItem[] = [];
+const KILAX_WEBSITE_URL = "https://kilaxmovies.com/";
 
 // Hero slider IDs are populated dynamically from Reelplexi trending content.
 // The old hardcoded list [1,2,101,107,13] used TMDB integers — removed.
@@ -688,48 +689,27 @@ function SeriesDetailPage({ series, onClose, onWatch }: { series:MediaItem; onCl
 
 // ─── Share / Referral hook ────────────────────────────────────────────────────
 function useShareReferral() {
-  const share = async (item: MediaItem) => {
-    const contentId = item.sourceId || String(item.id)
-    const canonicalUrl = `https://www.kilaxmovies.com/${item.type === "movie" ? "movies" : "series"}/${encodeURIComponent(contentId)}`
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.access_token) {
-        await tryShare(item.title, canonicalUrl)
-        return
-      }
-      await fetch('/api/referral/generate', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contentId, contentType: item.type, contentTitle: item.title }),
-      })
-      await tryShare(item.title, canonicalUrl)
-    } catch {
-      await tryShare(item.title, canonicalUrl)
-    }
+  const share = async (_item: MediaItem) => {
+    await tryShare(KILAX_WEBSITE_URL)
   }
 
   return { share }
 }
 
-async function tryShare(title: string, url: string) {
-  const text = `🎬 Watch "${title}" on Kilax Movies — the best Ugandan streaming platform!`
+async function tryShare(url: string) {
   if (navigator.share) {
     try {
-      await navigator.share({ title, text, url })
+      await navigator.share({ url })
       return
     } catch {
-      // user cancelled or share failed — fall through to clipboard
+      // Fall back to copying the same homepage URL.
     }
   }
-  // Fallback: copy to clipboard + show toast
   try {
     await navigator.clipboard.writeText(url)
     showShareToast()
   } catch {
-    // last resort — open WhatsApp
-    const wa = `https://wa.me/?text=${encodeURIComponent(`${text}\n${url}`)}`
-    window.open(wa, '_blank', 'noopener,noreferrer')
+    // Clipboard and native sharing may both be unavailable in restricted contexts.
   }
 }
 
@@ -740,7 +720,7 @@ function showShareToast() {
   if (_toastTimeout) clearTimeout(_toastTimeout)
   const toast = document.createElement('div')
   toast.id = 'kilax-share-toast'
-  toast.textContent = '🔗 Share link copied! Your friend gets you 50 coins when they sign up.'
+  toast.textContent = 'Kilax website link copied.'
   Object.assign(toast.style, {
     position: 'fixed', bottom: '88px', left: '50%', transform: 'translateX(-50%)',
     background: 'rgba(16,185,129,0.95)', color: 'white', padding: '12px 20px',
@@ -783,7 +763,7 @@ function MediaCard({ item, myList, onToggleList, onOpen, inRow=false, listAction
       <div style={{ padding:"10px 3px 2px", display:"grid", gap:7 }}>
         <div style={{ display:"flex", alignItems:"center", gap:6, minHeight:20, width:"100%" }}>
           {listAction === "icon" && <button onClick={e=>{e.stopPropagation();onToggleList(item.id);}} aria-label={inList?"Remove from My List":"Add to My List"} title={inList?"Remove from My List":"Add to My List"} style={{width:26,height:26,minHeight:26,minWidth:26,padding:0,borderRadius:7,border:`1px solid ${inList?ORANGE:"rgba(255,255,255,.18)"}`,background:inList?"rgba(249,115,22,.14)":"rgba(255,255,255,.05)",color:inList?ORANGE:"#cbd5e1",cursor:"pointer",display:"inline-flex",alignItems:"center",justifyContent:"center"}}><Bookmark size={14} fill={inList?"currentColor":"none"}/></button>}
-          <button onClick={async e=>{e.stopPropagation();setSharing(true);await share(item);setSharing(false);}} aria-label="Share" title="Share & earn 50 coins" style={{width:26,height:26,minHeight:26,minWidth:26,padding:0,borderRadius:7,border:"1px solid rgba(16,185,129,.35)",background:"rgba(16,185,129,.08)",color:sharing?"#6ee7b7":"#10b981",cursor:"pointer",display:"inline-flex",alignItems:"center",justifyContent:"center"}}><Share2 size={12}/></button>
+          <button onClick={async e=>{e.stopPropagation();setSharing(true);await share(item);setSharing(false);}} aria-label="Share" title="Share Kilax Movies" style={{width:26,height:26,minHeight:26,minWidth:26,padding:0,borderRadius:7,border:"1px solid rgba(16,185,129,.35)",background:"rgba(16,185,129,.08)",color:sharing?"#6ee7b7":"#10b981",cursor:"pointer",display:"inline-flex",alignItems:"center",justifyContent:"center"}}><Share2 size={12}/></button>
           <span style={{ marginLeft:"auto", color:"#94a3b8", fontSize:11 }}>{year || "—"}</span>
         </div>
         <div style={{display:"flex",alignItems:"center",gap:4,flexWrap:"wrap",minHeight:20}}>
@@ -2021,11 +2001,8 @@ function ProfilePage({ user, setUser, isPremium, subscriptionPlan, myListCount, 
   };
 
   const loadReferralLink = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.user?.id) return "";
-    const url = `https://kilaxmovies.com/?ref=${encodeURIComponent(session.user.id)}`;
-    setReferralLink(url);
-    return url;
+    setReferralLink(KILAX_WEBSITE_URL);
+    return KILAX_WEBSITE_URL;
   };
 
   const openReferralModal = async () => {
@@ -2037,10 +2014,7 @@ function ProfilePage({ user, setUser, isPremium, subscriptionPlan, myListCount, 
     if (referralBusy) return;
     setReferralBusy(true);
     try {
-      const url = referralLink || await loadReferralLink();
-      if (!url) return;
-      if (navigator.share) await navigator.share({ title:"Kilax Movies", text:"Join me on Kilax Movies and get free watches.", url });
-      else { await navigator.clipboard.writeText(url); showShareToast(); }
+      await tryShare(KILAX_WEBSITE_URL);
     } catch { /* User cancelled sharing or clipboard was unavailable. */ }
     finally { setReferralBusy(false); }
   };
@@ -2139,10 +2113,10 @@ function ProfilePage({ user, setUser, isPremium, subscriptionPlan, myListCount, 
 
         <button onClick={openReferralModal} style={{ width:"100%", display:"flex", alignItems:"center", gap:16, padding:"14px 16px", marginBottom:16, borderRadius:16, border:"1px solid rgba(249,115,22,.45)", background:"#171922", color:"white", textAlign:"left", cursor:"pointer" }}>
           <span style={{ width:64, height:64, borderRadius:16, display:"grid", placeItems:"center", flexShrink:0, background:"rgba(249,115,22,.1)", border:"1px solid rgba(249,115,22,.55)" }}><Share2 size={28} color="#fbbf24" /></span>
-          <span style={{ minWidth:0 }}><span style={{ display:"block", color:"white", fontSize:20, fontWeight:800, lineHeight:1.2 }}>Share &amp; Earn Free Streaming coins</span><span style={{ display:"block", color:"#93a4bd", fontSize:14, marginTop:6 }}>Every friend you bring earns you more coins no limit</span></span>
+          <span style={{ minWidth:0 }}><span style={{ display:"block", color:"white", fontSize:20, fontWeight:800, lineHeight:1.2 }}>Share Kilax Movies</span><span style={{ display:"block", color:"#93a4bd", fontSize:14, marginTop:6 }}>Send the Kilax homepage to friends and family</span></span>
         </button>
 
-        {referralModal && <ShareEarnModal link={referralLink} busy={referralBusy} onClose={()=>setReferralModal(false)} onShare={shareReferralLink} onCopy={async()=>{const url=referralLink||await loadReferralLink();if(url){await navigator.clipboard.writeText(url);showShareToast();}}} />}
+        {referralModal && <ShareEarnModal link={KILAX_WEBSITE_URL} busy={referralBusy} onClose={()=>setReferralModal(false)} onShare={shareReferralLink} onCopy={async()=>{await navigator.clipboard.writeText(KILAX_WEBSITE_URL);showShareToast();}} />}
 
         <div style={{ ...card, padding:0, overflow:"hidden" }}>
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, padding:"20px 20px 16px", borderBottom:"1px solid rgba(255,255,255,.07)" }}>
@@ -2326,8 +2300,8 @@ function ShareEarnModal({ link, busy, onClose, onShare, onCopy }: { link:string;
   const benefit = (icon:React.ReactNode, title:string, text:string, color:string) => <div style={{ flex:1, minWidth:0, padding:"16px 10px", borderRadius:14, background:"rgba(255,255,255,.045)", border:"1px solid rgba(255,255,255,.08)", textAlign:"center" }}><div style={{ width:44, height:44, margin:"0 auto 10px", borderRadius:"50%", display:"grid", placeItems:"center", background:`${color}22`, color }}>{icon}</div><p style={{ color:"white", fontSize:13, fontWeight:800, lineHeight:1.15, margin:"0 0 8px" }}>{title}</p><p style={{ color:"#64748b", fontSize:11, lineHeight:1.35, margin:0 }}>{text}</p></div>;
   return <div onClick={onClose} style={{ position:"fixed", inset:0, zIndex:230, background:"rgba(0,0,0,.76)", backdropFilter:"blur(14px)", display:"grid", placeItems:"center", padding:16 }}>
     <div onClick={e=>e.stopPropagation()} className="fade-up" style={{ width:"100%", maxWidth:560, maxHeight:"92vh", overflowY:"auto", background:"#171922", border:"1px solid rgba(255,255,255,.14)", borderRadius:22, boxShadow:"0 32px 100px rgba(0,0,0,.8)" }}>
-      <div style={{ display:"flex", alignItems:"center", gap:14, padding:"20px 20px 18px", borderBottom:"1px solid rgba(255,255,255,.08)" }}><div style={{ width:54, height:54, borderRadius:16, background:"rgba(249,115,22,.14)", border:"1px solid rgba(249,115,22,.42)", display:"grid", placeItems:"center" }}><Share2 size={25} color="#fbbf24" /></div><div style={{ flex:1 }}><h2 style={{ color:"white", fontSize:19, fontWeight:800, margin:0 }}>Share &amp; Earn Free Streaming Points / Coins</h2><p style={{ color:"#94a3b8", fontSize:13, margin:"4px 0 0" }}>Every friend you bring earns you more streaming points</p></div><button onClick={onClose} aria-label="Close" style={{ width:40, height:40, border:0, borderRadius:"50%", background:"rgba(255,255,255,.07)", color:"#94a3b8", cursor:"pointer", fontSize:22 }}>×</button></div>
-      <div style={{ padding:"20px" }}><div style={{ textAlign:"center", marginBottom:20 }}><Gift size={42} color="#fbbf24" style={{ margin:"0 auto 10px" }} /><h2 style={{ color:"white", fontSize:25, fontWeight:800, margin:0 }}>Earn Free Credits / Coins</h2><p style={{ color:"#fbbf24", fontSize:15, fontWeight:800, margin:"8px 0 0" }}>Share to a friend and earn free Streaming coins / points</p></div><p style={{ color:"#d1d5db", fontSize:15, lineHeight:1.7, textAlign:"center", margin:"0 0 20px" }}>Every time you share a movie or series and someone opens your link, you earn <strong style={{ color:"#fbbf24" }}>5 free credits</strong> — use them to watch or download anything on Kilax.</p><div style={{ display:"grid", gap:9, marginBottom:20 }}>{["Open any movie or series","Tap the Share button","Someone opens your link","You get 5 free Coins instantly"].map((text,index)=><div key={text} style={{ display:"flex", alignItems:"center", gap:14, padding:"13px 16px", borderRadius:13, background:"rgba(255,255,255,.045)", color:"#d1d5db", fontSize:14, fontWeight:700 }}><span style={{ width:28, height:28, display:"grid", placeItems:"center", flexShrink:0, color:index===0?ORANGE:index===1?BLUE:index===2?"#c084fc":"#4ade80" }}>{index===0?<ClapperIcon size={20}/>:index===1?<Link2 size={20}/>:index===2?<Users size={20}/>:<Check size={21}/>}</span>{text}</div>)}</div><div style={{ display:"flex", gap:8, marginBottom:10, alignItems:"center" }}><input readOnly value={link || "Preparing your invite link…"} aria-label="Invite link" style={{ ...inputSt, flex:1, minWidth:0, fontSize:12, color:"#a8adba" }} /><button onClick={onCopy} aria-label="Copy invite link" style={{ width:46, height:46, minHeight:46, minWidth:46, padding:0, borderRadius:12, border:"1px solid rgba(255,255,255,.1)", background:"rgba(255,255,255,.07)", color:"#cbd5e1", cursor:"pointer", display:"grid", placeItems:"center" }}><Link2 size={16} /></button></div><button onClick={onShare} disabled={busy} style={{ width:"100%", padding:14, border:0, borderRadius:13, background:ORANGE, color:"#111827", fontSize:15, fontWeight:800, cursor:busy?"wait":"pointer" }}>{busy?"Sharing…":"Invite / Refer to a Friend "}</button></div>
+      <div style={{ display:"flex", alignItems:"center", gap:14, padding:"20px 20px 18px", borderBottom:"1px solid rgba(255,255,255,.08)" }}><div style={{ width:54, height:54, borderRadius:16, background:"rgba(249,115,22,.14)", border:"1px solid rgba(249,115,22,.42)", display:"grid", placeItems:"center" }}><Share2 size={25} color="#fbbf24" /></div><div style={{ flex:1 }}><h2 style={{ color:"white", fontSize:19, fontWeight:800, margin:0 }}>Share Kilax Movies</h2><p style={{ color:"#94a3b8", fontSize:13, margin:"4px 0 0" }}>Send the Kilax homepage to friends and family</p></div><button onClick={onClose} aria-label="Close" style={{ width:40, height:40, border:0, borderRadius:"50%", background:"rgba(255,255,255,.07)", color:"#94a3b8", cursor:"pointer", fontSize:22 }}>×</button></div>
+      <div style={{ padding:"20px" }}><div style={{ textAlign:"center", marginBottom:20 }}><Gift size={42} color="#fbbf24" style={{ margin:"0 auto 10px" }} /><h2 style={{ color:"white", fontSize:25, fontWeight:800, margin:0 }}>Share Kilax Movies</h2><p style={{ color:"#fbbf24", fontSize:15, fontWeight:800, margin:"8px 0 0" }}>Send the Kilax homepage link</p></div><p style={{ color:"#d1d5db", fontSize:15, lineHeight:1.7, textAlign:"center", margin:"0 0 20px" }}>Share https://kilaxmovies.com/ with friends so they can browse movies and series.</p><div style={{ display:"grid", gap:9, marginBottom:20 }}>{["Open Kilax Movies","Tap Share","Share https://kilaxmovies.com/","Friends can browse the catalog"].map((text,index)=><div key={text} style={{ display:"flex", alignItems:"center", gap:14, padding:"13px 16px", borderRadius:13, background:"rgba(255,255,255,.045)", color:"#d1d5db", fontSize:14, fontWeight:700 }}><span style={{ width:28, height:28, display:"grid", placeItems:"center", flexShrink:0, color:index===0?ORANGE:index===1?BLUE:index===2?"#c084fc":"#4ade80" }}>{index===0?<ClapperIcon size={20}/>:index===1?<Link2 size={20}/>:index===2?<Users size={20}/>:<Check size={21}/>}</span>{text}</div>)}</div><div style={{ display:"flex", gap:8, marginBottom:10, alignItems:"center" }}><input readOnly value={link || "Preparing your invite link…"} aria-label="Invite link" style={{ ...inputSt, flex:1, minWidth:0, fontSize:12, color:"#a8adba" }} /><button onClick={onCopy} aria-label="Copy invite link" style={{ width:46, height:46, minHeight:46, minWidth:46, padding:0, borderRadius:12, border:"1px solid rgba(255,255,255,.1)", background:"rgba(255,255,255,.07)", color:"#cbd5e1", cursor:"pointer", display:"grid", placeItems:"center" }}><Link2 size={16} /></button></div><button onClick={onShare} disabled={busy} style={{ width:"100%", padding:14, border:0, borderRadius:13, background:ORANGE, color:"#111827", fontSize:15, fontWeight:800, cursor:busy?"wait":"pointer" }}>{busy?"Sharing…":"Invite / Refer to a Friend "}</button></div>
     </div>
   </div>;
 }

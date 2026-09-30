@@ -43,6 +43,11 @@ export default function RecaptchaGuard() {
       s.remove();
     };
     document.head.appendChild(s);
+
+    return () => {
+      document.querySelectorAll('script[data-kilax-recaptcha]').forEach(script => script.remove());
+      document.querySelectorAll('.grecaptcha-badge, iframe[src*="/recaptcha/enterprise/anchor"], iframe[src*="/recaptcha/enterprise/bframe"]').forEach(element => element.remove());
+    };
   }, []);
 
   return null;
