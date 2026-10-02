@@ -7,6 +7,26 @@ function toArray<T>(value: T[] | null | undefined): T[] {
   return Array.isArray(value) ? value : [];
 }
 
+async function fetchLegacyRows(db: any, table: string, columnSets: string[]) {
+  for (const columns of columnSets) {
+    try {
+      return await fetchAllSupabaseRows<any>(db.from(table).select(columns));
+    } catch {
+      // Legacy projects may not have all columns added to the current project.
+    }
+  }
+  return [];
+}
+
+function getErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === "object" && "message" in error && typeof error.message === "string") {
+    const details = "details" in error && typeof error.details === "string" ? error.details : "";
+    return details ? `${error.message}: ${details}` : error.message;
+  }
+  return fallback;
+}
+
 function mergeAuthUsersById(users: any[] = [], source: "default" | "legacy") {
   const map = new Map<string, any>();
   for (const user of users) {
@@ -25,7 +45,7 @@ export async function GET(request: NextRequest) {
     const perPage = Math.min(1000, Math.max(1, Number(request.nextUrl.searchParams.get("per_page") || 500)));
     const search = request.nextUrl.searchParams.get("search")?.trim().toLowerCase() || "";
 
-    const [profiles, subs, plans, legacyProfiles, legacySubs] = await Promise.all([
+    const [profiles, subs, plans] = await Promise.all([
       fetchAllSupabaseRows<any>(
         db.from("profiles").select("id,full_name,email,avatar_url,role,created_at,subscription,subscription_start_date,subscription_expiry_date,trial_status,trial_started_at,trial_expires_at,phone")
       ),
@@ -35,19 +55,21 @@ export async function GET(request: NextRequest) {
           .order("created_at", { ascending: false })
       ),
       fetchAllSupabaseRows<any>(db.from("plans").select("id,name,tier,tier_label")),
-      legacyDb
-        ? fetchAllSupabaseRows<any>(
-            legacyDb.from("profiles").select("id,full_name,email,avatar_url,role,created_at,subscription,subscription_start_date,subscription_expiry_date,trial_status,trial_started_at,trial_expires_at,phone")
-          )
-        : Promise.resolve([]),
-      legacyDb
-        ? fetchAllSupabaseRows<any>(
-            legacyDb.from("subscriptions")
-              .select("user_id,plan_id,subscription_type,status,start_date,expiry_date,payment_method,created_at")
-              .order("created_at", { ascending: false })
-          )
-        : Promise.resolve([]),
     ]);
+    const [legacyProfiles, legacySubs] = legacyDb
+      ? await Promise.all([
+          fetchLegacyRows(legacyDb, "profiles", [
+            "id,full_name,email,avatar_url,role,created_at,subscription,subscription_start_date,subscription_expiry_date,trial_status,trial_started_at,trial_expires_at,phone",
+            "id,full_name,email,avatar_url,role,created_at,subscription,subscription_start_date,subscription_expiry_date,phone",
+            "id,full_name,email,avatar_url,role,created_at,subscription",
+          ]),
+          fetchLegacyRows(legacyDb, "subscriptions", [
+            "user_id,plan_id,subscription_type,status,start_date,expiry_date,payment_method,created_at",
+            "user_id,plan_id,subscription_type,status,start_date,expiry_date,created_at",
+            "user_id,plan_id,status,start_date,expiry_date,created_at",
+          ]),
+        ])
+      : [[], []];
 
     const authUsersById = new Map<string, any>();
     const defaultUsers = await listAllAuthUsers(db);
@@ -56,7 +78,12 @@ export async function GET(request: NextRequest) {
     }
 
     if (legacyDb) {
-      const legacyUsers = await listAllAuthUsers(legacyDb);
+      let legacyUsers: any[] = [];
+      try {
+        legacyUsers = await listAllAuthUsers(legacyDb);
+      } catch {
+        legacyUsers = [];
+      }
       for (const user of toArray(legacyUsers)) {
         if (!user?.id) continue;
         const key = String(user.id);
@@ -170,7 +197,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     const status = error instanceof Response ? error.status : 502;
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unable to load users" },
+      { error: getErrorMessage(error, "Unable to load users") },
       { status }
     );
   }

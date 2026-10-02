@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import './globals.css'
 import ServiceWorkerRegister from '@/components/ServiceWorkerRegister'
 import { AuthProvider } from '@/components/AuthProvider'
+import OneSignalPrompt from '@/components/OneSignalPrompt'
 import { DeviceProvider } from '@/components/DeviceProvider'
 import { ThemeProvider } from '@/components/ThemeProvider'
 import FirebaseAnalytics from '@/components/FirebaseAnalytics'
@@ -50,6 +51,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             <DeviceProvider>
               {children}
             </DeviceProvider>
+            <OneSignalPrompt />
           </AuthProvider>
         </ThemeProvider>
         <ServiceWorkerRegister />

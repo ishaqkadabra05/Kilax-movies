@@ -7,7 +7,6 @@ import { signInWithEmail, signOut } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 import { Search, Phone, Bell, X, ChevronLeft, ChevronRight, Plus, Check, Bookmark, Home, Film, Tv2, Globe, Heart, History, Smartphone, UserRound, Crown, Library, Flame, Sparkles, Clapperboard, Compass, Share2, Users, Gift, Link2, Play, Clapperboard as ClapperIcon, PlayCircle, Download, MonitorPlay, BellRing } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import OneSignalPrompt from "@/components/OneSignalPrompt";
 import Footer from "@/components/Footer";
 import RecaptchaGuard, { getRecaptchaToken } from "@/components/RecaptchaGuard";
 import HomeVideoPlayer from "@/components/HomeVideoPlayer";
@@ -2729,7 +2728,6 @@ export default function App() {
   return (
     <div style={{ width:"100%", height:"100%", overflow:"hidden", background:BG, position:"relative" }}>
       <RecaptchaGuard />
-      <OneSignalPrompt />
       {videoWatch && (
         <HomeVideoPlayer
           item={videoWatch.item}

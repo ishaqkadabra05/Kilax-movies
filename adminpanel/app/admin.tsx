@@ -13,6 +13,7 @@ interface User {
 }
 interface Subscription {
   id: number; email: string; plan: string; startDate: string; endDate: string; status: "active" | "expired";
+  planId?: string | null;
 }
 interface Transaction {
   id: string; user: string; email: string; plan: string; amount: string; date: string; status: "success" | "pending" | "failed";
@@ -42,27 +43,55 @@ const INIT_NOTIFICATIONS: Notification[] = [
 
 
 
-// Compute end date from start date + plan duration keyword
-function computeEndDate(startIso: string, plan: string): string {
-  const d = new Date(startIso);
-  const p = plan.toLowerCase();
-  if (p.includes("starter") || p.includes("4 hour")) { d.setHours(d.getHours() + 4); return d.toISOString().slice(0, 10); }
-  if (p.includes("one day")) d.setDate(d.getDate() + 1);
-  else if (p.includes("one week")) d.setDate(d.getDate() + 7);
-  else if (p.includes("one month")) d.setMonth(d.getMonth() + 1);
-  else if (p.includes("two months")) d.setMonth(d.getMonth() + 2);
-  else if (p.includes("three months")) d.setMonth(d.getMonth() + 3);
-  else if (p.includes("six months")) d.setMonth(d.getMonth() + 6);
-  else if (p.includes("one year")) d.setFullYear(d.getFullYear() + 1);
-  return d.toISOString().split("T")[0];
+function computeEndDate(startIso: string, plan: any): string {
+  const date = new Date(`${startIso.slice(0, 10)}T00:00:00`);
+  const duration = String(plan.duration ?? "").toLowerCase();
+  const durationMatch = duration.match(/(\d+(?:\.\d+)?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s*(hours?|days?|weeks?|months?|years?)/);
+  const durationWords: Record<string, number> = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12 };
+  const durationValue = durationMatch
+    ? Number(durationMatch[1]) || durationWords[durationMatch[1]]
+    : 1;
+  const addMonths = (months: number) => {
+    const day = date.getDate();
+    const wholeMonths = Math.trunc(months);
+    date.setDate(1);
+    date.setMonth(date.getMonth() + wholeMonths);
+    date.setDate(Math.min(day, new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate()));
+    const fractionalDays = Math.round((months - wholeMonths) * 30);
+    if (fractionalDays) date.setDate(date.getDate() + fractionalDays);
+  };
+
+  if (Number(plan.duration_in_hours) > 0) {
+    date.setHours(date.getHours() + Number(plan.duration_in_hours));
+  } else if (Number(plan.duration_in_days) > 0) {
+    date.setDate(date.getDate() + Number(plan.duration_in_days));
+  } else if (Number(plan.duration_in_months) > 0) {
+    addMonths(Number(plan.duration_in_months));
+  } else if (duration.includes("hour")) {
+    date.setHours(date.getHours() + durationValue);
+  } else if (duration.includes("day")) {
+    date.setDate(date.getDate() + durationValue);
+  } else if (duration.includes("week")) {
+    date.setDate(date.getDate() + durationValue * 7);
+  } else if (duration.includes("year")) {
+    addMonths(durationValue * 12);
+  } else if (duration.includes("month")) {
+    addMonths(durationValue);
+  } else {
+    date.setDate(date.getDate() + 30);
+  }
+
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
 function todayIso() {
   return new Date().toISOString().split("T")[0];
 }
 
-function fmtDate(iso: string) {
-  const d = new Date(iso + "T00:00:00");
+function fmtDate(iso: string | null | undefined) {
+  if (!iso) return "—";
+  const d = new Date(`${iso.slice(0, 10)}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return "—";
   return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
 
@@ -175,13 +204,19 @@ function ContentPushModal({ item, onClose }: { item: Movie; onClose: () => void 
 // ── Edit Subscription Modal ────────────────────────────────────────────────
 function EditSubscriptionModal({ sub, plans, onClose, onSave }: { sub: Subscription; plans: any[]; onClose: () => void; onSave: (updated: Subscription) => void }) {
   const today = todayIso();
-  const [plan, setPlan] = useState(sub.plan);
-  const [startDate, setStartDate] = useState(sub.startDate?.slice(0, 10) || today);
-  const [endDate, setEndDate] = useState(() => computeEndDate(today, sub.plan));
+  const defaultStartDate = sub.status === "expired" ? today : sub.startDate?.slice(0, 10) || today;
+  const [planId, setPlanId] = useState(String(sub.planId ?? ""));
+  const [startDate, setStartDate] = useState(defaultStartDate);
+  const currentPlan = plans.find(p => String(p.id) === String(sub.planId));
+  const [endDate, setEndDate] = useState(() => sub.status === "expired" || !sub.endDate
+    ? currentPlan ? computeEndDate(defaultStartDate, currentPlan) : today
+    : sub.endDate.slice(0, 10));
+  const selectedPlan = plans.find(p => String(p.id) === planId);
 
-  const handlePlanChange = (p: string) => {
-    setPlan(p);
-    setEndDate(computeEndDate(today, p));
+  const handlePlanChange = (nextPlanId: string) => {
+    setPlanId(nextPlanId);
+    const nextPlan = plans.find(p => String(p.id) === nextPlanId);
+    if (nextPlan) setEndDate(computeEndDate(startDate, nextPlan));
   };
 
   const extend = (days: number) => {
@@ -204,20 +239,20 @@ function EditSubscriptionModal({ sub, plans, onClose, onSave }: { sub: Subscript
           </div>
           <div>
             <label className="block text-sm font-500 text-gray-700 mb-1">Plan</label>
-            <select className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white" value={plan} onChange={e => handlePlanChange(e.target.value)}>
+            <select className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white" value={planId} onChange={e => handlePlanChange(e.target.value)}>
               <option value="">Select a plan</option>
-              {plans.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
+              {plans.map(p => <option key={p.id} value={p.id}>{p.display_name || p.name}</option>)}
             </select>
           </div>
           <div>
             <label className="block text-sm font-500 text-gray-700 mb-1">Start Date <span className="text-orange-400 text-xs">(activation date)</span></label>
-            <input type="date" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" value={startDate} onChange={e => setStartDate(e.target.value)} />
+            <input type="date" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" value={startDate} onChange={e => { const nextStartDate = e.target.value; setStartDate(nextStartDate); if (selectedPlan) setEndDate(computeEndDate(nextStartDate, selectedPlan)); }} />
           </div>
           <div>
             <label className="block text-sm font-500 text-gray-700 mb-1">End Date <span className="text-orange-400 text-xs">(auto-calculated)</span></label>
             <div className="flex gap-2"><input type="date" className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm" value={endDate} onChange={e => setEndDate(e.target.value)} /><button type="button" onClick={() => extend(7)} className="px-3 rounded-lg border border-orange-200 bg-orange-50 text-orange-600 text-xs font-600">+7 days</button></div>
           </div>
-          {plan && (
+          {selectedPlan && (
             <div className="bg-orange-50 border border-orange-100 rounded-lg px-4 py-3 text-xs text-orange-700">
               Active from <strong>{fmtDate(startDate)}</strong> to <strong>{fmtDate(endDate)}</strong>
             </div>
@@ -225,7 +260,7 @@ function EditSubscriptionModal({ sub, plans, onClose, onSave }: { sub: Subscript
         </div>
         <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-gray-100">
           <button onClick={onClose} className="px-4 py-2 text-sm font-500 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">Cancel</button>
-          <button onClick={() => onSave({ ...sub, plan, startDate, endDate, status: "active" })} className="px-5 py-2 text-sm font-600 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors">Update Subscription</button>
+          <button disabled={!selectedPlan} onClick={() => onSave({ ...sub, planId, plan: selectedPlan.display_name || selectedPlan.name, startDate, endDate, status: "active" })} className="px-5 py-2 text-sm font-600 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:bg-gray-300 transition-colors">Update Subscription</button>
         </div>
       </div>
     </div>
@@ -854,7 +889,7 @@ function SubscriptionsPage() {
       authedFetch<any[]>("/api/subscriptions"),
       authedFetch<any>("/api/plans"),
     ]).then(([rows, planBody]) => {
-      setSubs(rows.map((s: any) => ({ id: s.id, email: s.email || s.user_email || s.user_id, plan: s.plan, startDate: s.start_date, endDate: s.end_date, status: s.status })));
+      setSubs(rows.map((s: any) => ({ id: s.id, email: s.email || s.user_email || s.user_id, plan: s.plan, planId: s.plan_id, startDate: s.start_date, endDate: s.end_date, status: s.status })));
       setPlans(planBody.plans || []);
     }).catch(e => { setSubs([]); setError(e instanceof Error ? e.message : "Unable to load subscriptions"); }).finally(() => setLoading(false));
   };
@@ -903,12 +938,15 @@ function SubscriptionsPage() {
     const planLower = (s.plan || "").toLowerCase();
     return planLower.includes("trial");
   }).length;
-  const subscriptionPlans = plans.some(p => String(p.display_name || p.name).toLowerCase().includes("go plus")) ? plans : [...plans, { id: "go-plus", name: "Go Plus", display_name: "Go Plus" }];
-
   const handleSave = async (updated: Subscription) => {
-    const saved = await authedFetch<any>("/api/subscriptions", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: updated.id, plan: updated.plan, start_date: updated.startDate, end_date: updated.endDate, status: updated.status }) });
-    setSubs(p => p.map(s => s.id === updated.id ? { ...updated, status: saved.status || updated.status } : s));
-    setEditSub(null);
+    setError("");
+    try {
+      const saved = await authedFetch<any>("/api/subscriptions", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: updated.id, plan_id: updated.planId, plan: updated.plan, start_date: updated.startDate, end_date: updated.endDate, status: updated.status }) });
+      setSubs(p => p.map(s => s.id === updated.id ? { ...updated, status: saved.status || updated.status } : s));
+      setEditSub(null);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Unable to update subscription");
+    }
   };
 
   return (
@@ -948,7 +986,7 @@ function SubscriptionsPage() {
         <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-white"><h2 className="font-700 text-gray-900">Subscriptions</h2><span className="text-xs text-gray-400">{subs.length} records</span></div>
         {loading ? <div className="text-center py-16 text-gray-400">Loading subscriptions…</div> : <table className="w-full text-sm min-w-[700px]"><thead><tr><Th>Email</Th><Th>Plan</Th><Th>Start Date</Th><Th>End Date</Th><Th>Status</Th><Th>Actions</Th></tr></thead><tbody>{subs.map((sub, i) => <tr key={sub.id} className={`border-b border-gray-50 hover:bg-orange-50/30 transition-colors ${i%2===1?"bg-gray-50/30":""}`}><Td className="font-500 text-gray-800">{sub.email}</Td><Td className="text-gray-600 text-xs">{sub.plan}</Td><Td className="text-gray-500 whitespace-nowrap">{fmtDate(sub.startDate)}</Td><Td className="text-gray-500 whitespace-nowrap">{fmtDate(sub.endDate)}</Td><Td><span className={`px-2.5 py-1 rounded-full text-xs font-600 ${sub.status === "active" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-500"}`}>{sub.status === "active" ? "Active" : "Expired"}</span></Td><Td><button onClick={() => setEditSub(sub)} className="flex items-center gap-1.5 text-xs font-600 text-orange-600 border border-orange-200 bg-orange-50 hover:bg-orange-500 hover:text-white px-3 py-1.5 rounded-lg transition-colors"><Ic.edit /> Edit</button></Td></tr>)}</tbody></table>}
       </TableWrap>
-      {editSub && <EditSubscriptionModal sub={editSub} plans={subscriptionPlans} onClose={() => setEditSub(null)} onSave={handleSave} />}
+      {editSub && <EditSubscriptionModal sub={editSub} plans={plans} onClose={() => setEditSub(null)} onSave={handleSave} />}
     </div>
   );
 }

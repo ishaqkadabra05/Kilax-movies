@@ -76,23 +76,19 @@ export async function POST(request: NextRequest) {
         imageUrl: imageUrl ?? undefined,
         externalIds: externalIds.length ? externalIds : undefined,
       });
-      const recipientCount = Number(pushResult?.recipients ?? 0);
-      pushDelivered = recipientCount > 0;
-      if (!pushDelivered) {
-        pushError = "OneSignal accepted the request but reported zero subscribed recipients. Check the website domain, notification permission, and OneSignal user identity registration.";
-      }
+      pushDelivered = true;
     } catch (err) {
       pushError = err instanceof Error ? err.message : "OneSignal push failed";
       console.error("[notify] OneSignal push failed:", pushError);
     }
 
     return NextResponse.json({
-      ok:           true,
+      ok:           pushDelivered,
       notificationId: notification?.id ?? null,
       pushDelivered,
-      ...(pushError ? { warning: pushError } : {}),
+      ...(pushError ? { error: pushError, warning: pushError } : {}),
       ...(pushResult ? { oneSignal: pushResult } : {}),
-    }, { status: pushDelivered ? 200 : 207 });
+    }, { status: pushDelivered ? 200 : 502 });
 
   } catch (error) {
     const status = error instanceof Response ? error.status : 502;
