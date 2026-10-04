@@ -27,19 +27,21 @@ export async function GET(request: Request) {
       results = movieResults.map(item => ({ ...item, type: 'movie', created_at: item.release_date || new Date().toISOString(), published: true }))
     }
 
-    const genres = await ReelplexiService.getGenres()
-    const matchingGenre = genres.find((genre) => genre.name.toLowerCase() === query.trim().toLowerCase())
-      || genres.find((genre) => genre.name.toLowerCase().includes(query.trim().toLowerCase()))
-    if (matchingGenre) {
-      const [genreMovies, genreSeries] = await Promise.all([
-        type === 'series' ? Promise.resolve([]) : ReelplexiService.getMoviesByGenre(matchingGenre.id, page, perPage),
-        type === 'movie' ? Promise.resolve([]) : ReelplexiService.getSeriesByGenre(matchingGenre.id, page, perPage),
-      ])
-      results = [
-        ...results,
-        ...genreMovies.map(item => ({ ...item, type: 'movie', created_at: item.release_date || new Date().toISOString(), published: true })),
-        ...genreSeries.map(item => ({ ...item, type: 'series', created_at: item.first_air_date || new Date().toISOString(), published: true })),
-      ]
+    if (type === 'all') {
+      const genres = await ReelplexiService.getGenres()
+      const matchingGenre = genres.find((genre) => genre.name.toLowerCase() === query.trim().toLowerCase())
+        || genres.find((genre) => genre.name.toLowerCase().includes(query.trim().toLowerCase()))
+      if (matchingGenre) {
+        const [genreMovies, genreSeries] = await Promise.all([
+          ReelplexiService.getMoviesByGenre(matchingGenre.id, page, perPage),
+          ReelplexiService.getSeriesByGenre(matchingGenre.id, page, perPage),
+        ])
+        results = [
+          ...results,
+          ...genreMovies.map(item => ({ ...item, type: 'movie', created_at: item.release_date || new Date().toISOString(), published: true })),
+          ...genreSeries.map(item => ({ ...item, type: 'series', created_at: item.first_air_date || new Date().toISOString(), published: true })),
+        ]
+      }
     }
 
     results = results.filter((item, index, all) => all.findIndex(candidate => `${candidate.type || 'movie'}-${candidate.id}` === `${item.type || 'movie'}-${item.id}`) === index)

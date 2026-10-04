@@ -18,6 +18,8 @@ interface HomeVideoPlayerProps {
   onLimitReached?: () => void
 }
 
+const EMPTY_EPISODES: EpisodeWithSeason[] = []
+
 export default function HomeVideoPlayer({
   item,
   episodes,
@@ -126,7 +128,7 @@ export default function HomeVideoPlayer({
                 onError={markPlayerError}
                 maxWatchSeconds={freeLimitSeconds}
                 onLimitReached={onLimitReached}
-                episodes={item.type === 'series' ? playerEpisodes : []}
+                episodes={item.type === 'series' ? playerEpisodes : EMPTY_EPISODES}
                 currentEpisodeIndex={item.type === 'series' ? episodeIndex : -1}
                 onEpisodeSelect={item.type === 'series' ? handleEpisodeSelect : undefined}
                 contentType={item.type}

@@ -5,12 +5,11 @@ import { useRouter } from "next/navigation";
 
 import { signInWithEmail, signOut } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
-import { Search, Phone, Bell, X, ChevronLeft, ChevronRight, Plus, Check, Bookmark, Home, Film, Tv2, Globe, Heart, History, Smartphone, UserRound, Crown, Library, Flame, Sparkles, Clapperboard, Compass, Share2, Users, Gift, Link2, Play, Clapperboard as ClapperIcon, PlayCircle, Download, MonitorPlay, BellRing } from "lucide-react";
+import { Search, Phone, Bell, X, ChevronLeft, ChevronRight, Plus, Check, Bookmark, Home, Film, Tv2, Heart, History, Smartphone, UserRound, Crown, Library, Flame, Sparkles, Clapperboard, Compass, Share2, Users, Gift, Link2, Play, Clapperboard as ClapperIcon, PlayCircle, Download, MonitorPlay, BellRing } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import Footer from "@/components/Footer";
 import RecaptchaGuard, { getRecaptchaToken } from "@/components/RecaptchaGuard";
 import HomeVideoPlayer from "@/components/HomeVideoPlayer";
-import NontranslatedCatalogPage from "@/components/NontranslatedCatalogPage";
 import LiveTVPage from "@/components/LiveTVPage";
 import { PhoneNumberField, PHONE_COUNTRIES, isValidInternationalPhone, normalizeInternationalPhone } from "@/components/PhoneNumberField";
 import { isValidEmail, isValidPassword } from "@/lib/validation";
@@ -1062,7 +1061,6 @@ function Drawer({ open, onClose, page, setPage, isLoggedIn, user, onAuthOpen }: 
     { icon:Film,       label:"Movies",        page:"movies" },
     { icon:Tv2,        label:"Series",        page:"series" },
     { icon:Tv2,        label:"Live TVs",      page:"livetvs" },
-    { icon:Globe,      label:"Nontranslated", page:"english" },
     { icon:Heart,      label:"My List",       page:"mylist" },
     { icon:History,    label:"Watch History", page:"history" },
     { icon:Smartphone, label:"Get App",       page:"getapp" },
@@ -1573,6 +1571,15 @@ function SubscriptionPage({ onSuccess }: { onSuccess?:()=>void }) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string|null>(null);
   const [paymentError, setPaymentError] = useState<string|null>(null);
+  useEffect(() => {
+    const cardHoldMessage = "Card payments are currently on hold. They will be restored shortly.";
+    if (method === "card") {
+      setMethod(null);
+      setPaymentError(cardHoldMessage);
+    } else if (method === "mobile_money" && paymentError === cardHoldMessage) {
+      setPaymentError(null);
+    }
+  }, [method, paymentError]);
   // 'idle' | 'polling' | 'success' | 'timeout'
   const [paymentState, setPaymentState] = useState<"idle"|"polling"|"success"|"timeout">("idle");
   const [activePlan, setActivePlan] = useState<{name:string;expiry:string}|null>(null);
@@ -2326,7 +2333,6 @@ export default function App() {
       movies: "/?page=movies",
       series: "/?page=series",
       livetvs: "/?page=livetvs",
-      english: "/?page=english",
       subscription: "/?page=subscription",
       mylist: "/?page=mylist",
       profile: "/?page=profile",
@@ -2423,7 +2429,7 @@ export default function App() {
         return;
       }
 
-      const nextPage = requestedPage === "tvshows" ? "livetvs" : requestedPage === "movies" || requestedPage === "series" || requestedPage === "livetvs" || requestedPage === "english" || requestedPage === "mylist" || requestedPage === "profile" || requestedPage === "history" || requestedPage === "getapp" || requestedPage === "subscription" ? requestedPage
+      const nextPage = requestedPage === "tvshows" ? "livetvs" : requestedPage === "movies" || requestedPage === "series" || requestedPage === "livetvs" || requestedPage === "mylist" || requestedPage === "profile" || requestedPage === "history" || requestedPage === "getapp" || requestedPage === "subscription" ? requestedPage
         : pathname === "/movies" || pathname === "/series" ? "home"
         : pathname === "/subscribe" || pathname === "/subscription" ? "profile"
         : pathname === "/mylist" ? "mylist"
@@ -2678,22 +2684,15 @@ export default function App() {
     setModal(null);
     setSeriesDetail(null);
 
-    const target = item.type === "movie"
-      ? `/movies/${encodeURIComponent(String(item.sourceId || item.id))}`
-      : "/?page=series";
-
     if (item.type === "movie") {
       setModal(item);
     } else {
       setSeriesDetail(item);
     }
 
-    if (item.type === "movie") {
-      if (window.location.pathname !== target) {
-        router.push(target, { scroll: false });
-      }
-    } else {
+    if (item.type !== "movie") {
       // Series: stay on /?page=series, no ID in URL
+      const target = "/?page=series";
       if (`${window.location.pathname}${window.location.search}` !== target) {
         router.push(target, { scroll: false });
       }
@@ -2787,7 +2786,6 @@ export default function App() {
         {page==="movies"       && <CatalogPage      type="movie" title={catalogPreset.latest ? "Latest Movies" : catalogPreset.genre ? `${catalogPreset.genre} Movies` : "Movies"} accentColor={BLUE} myList={myList} onToggleList={toggleList} onOpen={m=>setModal(m)} initialGenre={catalogPreset.genre || "All"} initialFilter={catalogPreset.latest ? "latest" : "all"} />}
         {page==="series"       && <CatalogPage      type="series" title={catalogPreset.latest ? "Latest Series" : catalogPreset.genre ? `${catalogPreset.genre} Series` : "Series"} accentColor={ORANGE} myList={myList} onToggleList={toggleList} onOpen={m=>setModal(m)} initialGenre={catalogPreset.genre || "All"} initialFilter={catalogPreset.latest ? "latest" : "all"} />}
         {page==="livetvs"     && <LiveTVPage />}
-        {page==="english"     && <NontranslatedCatalogPage />}
         {page==="subscription" && <SubscriptionPage onSuccess={()=>{setIsPremium(true);refreshSubscription();updatePage("profile");}} />}
         {page==="mylist"       && <MyListPage       myList={myList} onToggleList={toggleList} onOpen={m=>setModal(m)} />}
         {page==="profile"      && <ProfilePage      user={user} setUser={setUser} isPremium={isPremium} subscriptionPlan={subscriptionPlan} myListCount={myList.size} setPage={updatePage} onSignOut={handleSignOut} />}

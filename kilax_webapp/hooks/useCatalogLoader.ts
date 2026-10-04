@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { MediaItem } from '@/lib/types/media'
 import { mapMediaItem } from '@/lib/media-normalizer'
 
@@ -19,6 +19,7 @@ interface CatalogState {
  * so local development shows the same real content as production.
  */
 export function useCatalogLoader(_fallbackCatalog: MediaItem[]): CatalogState {
+  const lastCatalogKey = useRef<string | null>(null)
   const [state, setState] = useState<CatalogState>({
     catalog: [],
     ready:   false,
@@ -27,9 +28,14 @@ export function useCatalogLoader(_fallbackCatalog: MediaItem[]): CatalogState {
 
   useEffect(() => {
     let cancelled = false
+    let loading = false
 
-    fetch('/api/reelplexi/catalog', { cache: 'force-cache' })
-      .then(async response => {
+    const loadCatalog = async () => {
+      if (loading) return
+      loading = true
+
+      try {
+        const response = await fetch('/api/reelplexi/catalog', { cache: 'no-store' })
         const payload = await response.json()
 
         if (!response.ok || payload.unavailable) {
@@ -47,21 +53,47 @@ export function useCatalogLoader(_fallbackCatalog: MediaItem[]): CatalogState {
           })),
         ]
 
-        if (!cancelled) {
+        const catalogKey = JSON.stringify(baseItems.map(item => [
+          item.type,
+          item.sourceId,
+          item.title,
+          item.image,
+          item.description,
+          item.year,
+        ]))
+
+        if (!cancelled && catalogKey !== lastCatalogKey.current) {
+          lastCatalogKey.current = catalogKey
           setState({ catalog: baseItems, ready: true, error: null })
         }
-
-      })
-      .catch(error => {
+      } catch (error) {
         console.warn('[useCatalogLoader] Reelplexi catalog unavailable:', error)
-        // Show an empty catalog — never fall back to TMDB/hardcoded data
         if (!cancelled) {
-          setState({ catalog: [], ready: true, error: error instanceof Error ? error.message : 'Catalog unavailable' })
+          setState(current => current.catalog.length
+            ? current
+            : { catalog: [], ready: true, error: error instanceof Error ? error.message : 'Catalog unavailable' })
         }
-      })
+      } finally {
+        loading = false
+      }
+    }
 
-    return () => { cancelled = true }
-  }, []) // intentionally empty — catalog is fetched once on mount
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') void loadCatalog()
+    }
+
+    void loadCatalog()
+    const interval = window.setInterval(refreshWhenVisible, 60_000)
+    window.addEventListener('focus', refreshWhenVisible)
+    document.addEventListener('visibilitychange', refreshWhenVisible)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(interval)
+      window.removeEventListener('focus', refreshWhenVisible)
+      document.removeEventListener('visibilitychange', refreshWhenVisible)
+    }
+  }, []) // refresh is triggered on mount, focus, visibility, and interval
 
   return state
 }

@@ -23,7 +23,10 @@ export async function GET() {
       enrichItems(series,  'series', 8),
     ])
 
-    return NextResponse.json({ movies: enrichedMovies, series: enrichedSeries })
+    return NextResponse.json(
+      { movies: enrichedMovies, series: enrichedSeries },
+      { headers: { 'Cache-Control': 'no-store, max-age=0' } }
+    )
 
   } catch (error) {
     console.warn('[catalog] Reelplexi unavailable:', error)
@@ -32,7 +35,7 @@ export async function GET() {
       series: [],
       unavailable: true,
       error: error instanceof Error ? error.message : 'Reelplexi request failed',
-    })
+    }, { headers: { 'Cache-Control': 'no-store, max-age=0' } })
   }
 }
 

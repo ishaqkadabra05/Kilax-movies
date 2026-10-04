@@ -515,11 +515,21 @@ function ArtPlayerCore({
       // Don't immediately set auth error for network issues - try to recover
       if (errorType === 'network' && art.video) {
         console.log('Network error detected, attempting recovery...')
-        // Try to reload the video element without destroying the player
+        const video = art.video
+        const resumeAt = video.currentTime
+        const wasPlaying = art.playing || !video.paused
+
         setTimeout(() => {
-          if (art && art.video) {
-            art.video.load()
-          }
+          if (playerRef.current !== art || art.video !== video) return
+
+          video.addEventListener('loadedmetadata', () => {
+            if (resumeAt > 0 && (!Number.isFinite(video.duration) || video.duration > resumeAt + 1)) {
+              try { video.currentTime = resumeAt } catch { /* wait for the stream to become seekable */ }
+            }
+            if (wasPlaying) void art.play().catch(() => undefined)
+          }, { once: true })
+
+          video.load()
         }, 1000)
         return
       }

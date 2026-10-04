@@ -14,7 +14,6 @@ import {
   Home,
   Film,
   Tv2,
-  Globe,
   Smartphone,
   User,
   CreditCard,
@@ -32,7 +31,6 @@ import {
 /* ── nav items ──────────────────────────────────────────────── */
 const leftNavItems = [
   { href: "/?page=livetvs", label: "Live TVs", icon: Tv2 },
-  { href: "/?page=english", label: "Nontranslated", icon: Globe },
 ];
 
 /* ── theme option list ──────────────────────────────────────── */

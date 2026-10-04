@@ -106,6 +106,12 @@ export async function POST(req: NextRequest) {
     if (!['mobile_money', 'card'].includes(paymentMethod)) {
       return NextResponse.json({ error: 'Unsupported payment method' }, { status: 400 })
     }
+    if (paymentMethod === 'card') {
+      return NextResponse.json(
+        { error: 'Card payments are currently on hold. They will be restored shortly.' },
+        { status: 503 }
+      )
+    }
     const paymentAmount = Number(amount)
     if (!Number.isFinite(paymentAmount) || paymentAmount <= 0 || paymentAmount > 10_000_000) {
       return NextResponse.json({ error: 'Invalid payment amount' }, { status: 400 })

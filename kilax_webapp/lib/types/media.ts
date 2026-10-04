@@ -5,7 +5,6 @@ export type Page =
   | 'movies'
   | 'series'
   | 'livetvs'
-  | 'english'
   | 'subscription'
   | 'mylist'
   | 'profile'

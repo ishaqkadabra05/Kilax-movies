@@ -18,30 +18,72 @@ export function useCatalogCollection({ type, endpoint, initialVjs = [], getCatal
   const [search, setSearch] = useState('')
   const [sort, setSort] = useState(type === 'movie' ? 'score' : 'title')
   const [page, setPage] = useState(1)
-  const [loading, setLoading] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [searchLoading, setSearchLoading] = useState(false)
+  const [searchResults, setSearchResults] = useState<{ query: string; items: MediaItem[] } | null>(null)
   const [hasMore, setHasMore] = useState(true)
   const [version, setVersion] = useState(0)
   const [vjOptions, setVjOptions] = useState(initialVjs)
   const sentinel = useRef<HTMLDivElement>(null)
 
-  const list = useMemo(() => getCatalog().filter(item => item.type === type), [type, version, getCatalog])
+  const catalog = getCatalog()
+  const list = useMemo(() => catalog.filter(item => item.type === type), [catalog, type, version])
+
+  useEffect(() => {
+    setPage(1)
+    setHasMore(true)
+  }, [catalog])
+
+  useEffect(() => {
+    if (!search) {
+      setSearchResults(null)
+      setSearchLoading(false)
+      return
+    }
+
+    const controller = new AbortController()
+    setSearchLoading(true)
+
+    fetch(`/api/reelplexi/search?q=${encodeURIComponent(search)}&type=${type}&limit=30`, {
+      cache: 'no-store',
+      signal: controller.signal,
+    })
+      .then(async response => {
+        const payload = await response.json()
+        if (!response.ok || payload.success === false) throw new Error(payload.error || 'Search failed')
+        const rows = Array.isArray(payload.data) ? payload.data : []
+        setSearchResults({ query: search, items: rows.map((item: any, index: number) => mapMediaItem(item, type, index)) })
+      })
+      .catch(error => {
+        if (error instanceof DOMException && error.name === 'AbortError') return
+        setSearchResults({ query: search, items: [] })
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setSearchLoading(false)
+      })
+
+    return () => controller.abort()
+  }, [search, type])
+
   const genres = useMemo(() => [
     'All',
     ...Array.from(new Set(list.flatMap(item => item.genres)))
       .filter(genreName => genreName.toLowerCase() !== 'musical')
       .sort(),
   ], [list])
-  const filtered = useMemo(() => list
+  const source = search
+    ? searchResults?.query === search ? searchResults.items : []
+    : list
+  const filtered = useMemo(() => source
     .filter(item => filter !== 'latest' || item.isLatest)
     .filter(item => genre === 'All' || item.genres.some(value => value.toLowerCase() === genre.toLowerCase()))
     .filter(item => vj === 'All VJs' || (item.vj || '') === vj)
-    .filter(item => !search.trim() || item.title.toLowerCase().includes(search.toLowerCase()))
     .sort((left, right) => sort === 'score' ? right.score - left.score : sort === 'year' ? right.year - left.year : left.title.localeCompare(right.title)),
-  [list, filter, genre, vj, search, sort])
+  [source, filter, genre, vj, sort])
 
   const loadMore = useCallback(async () => {
-    if (loading || !hasMore) return
-    setLoading(true)
+    if (search || loadingMore || !hasMore) return
+    setLoadingMore(true)
     try {
       const response = await fetch(`${endpoint}?page=${page + 1}&limit=24`, { cache: 'no-store' })
       const payload = await response.json()
@@ -57,9 +99,9 @@ export function useCatalogCollection({ type, endpoint, initialVjs = [], getCatal
     } catch {
       setHasMore(false)
     } finally {
-      setLoading(false)
+      setLoadingMore(false)
     }
-  }, [endpoint, getCatalog, hasMore, loading, page, type])
+  }, [endpoint, getCatalog, hasMore, loadingMore, page, search, type])
 
   useEffect(() => {
     const element = sentinel.current
@@ -72,8 +114,8 @@ export function useCatalogCollection({ type, endpoint, initialVjs = [], getCatal
   }, [loadMore])
 
   useEffect(() => {
-    if ((genre !== 'All' || vj !== 'All VJs' || search.trim()) && !loading && hasMore && filtered.length < 12) void loadMore()
-  }, [filtered.length, genre, hasMore, loadMore, loading, search, vj])
+    if (!search && (genre !== 'All' || vj !== 'All VJs') && !loadingMore && hasMore && filtered.length < 12) void loadMore()
+  }, [filtered.length, genre, hasMore, loadMore, loadingMore, search, vj])
 
   useEffect(() => {
     fetch(`/api/reelplexi/vjs${type === 'series' ? '?type=series' : ''}`, { cache: 'force-cache' })
@@ -86,5 +128,5 @@ export function useCatalogCollection({ type, endpoint, initialVjs = [], getCatal
   }, [type])
 
   const clearFilters = () => { setFilter('all'); setGenre('All'); setVj('All VJs'); setSearch(''); setSort(type === 'movie' ? 'score' : 'title') }
-  return { filter, setFilter, genre, setGenre, vj, setVj, search, setSearch, sort, setSort, genres, filtered, loading, hasMore, vjOptions, sentinel, clearFilters }
+  return { filter, setFilter, genre, setGenre, vj, setVj, search, setSearch, sort, setSort, genres, filtered, loading: loadingMore || searchLoading, hasMore: search ? false : hasMore, vjOptions, sentinel, clearFilters }
 }
