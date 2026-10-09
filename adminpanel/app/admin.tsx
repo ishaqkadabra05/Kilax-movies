@@ -1909,6 +1909,11 @@ export default function App() {
 
   useEffect(() => {
     const client = supabaseBrowser();
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js", { scope: "/_next/static/" }).catch((error) => {
+        console.error("Service worker registration failed", error);
+      });
+    }
     client.auth.getSession().then(({ data }) => {
       setLoggedIn(!!data.session);
       if (data.session?.user) {
@@ -1958,7 +1963,7 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-full bg-gray-50">
+    <div className="flex h-dvh min-h-dvh bg-gray-50">
       {/* Desktop sidebar */}
       <aside className="hidden lg:flex w-56 bg-white border-r border-gray-100 flex-col h-full flex-shrink-0">
         <SidebarNav page={page} setPage={setPage} onLogout={async () => { await supabaseBrowser().auth.signOut(); setLoggedIn(false); }} />
@@ -1968,13 +1973,13 @@ export default function App() {
       {drawerOpen && <div className="fixed inset-0 z-40 bg-black/40 lg:hidden" onClick={() => setDrawerOpen(false)} />}
 
       {/* Mobile drawer */}
-      <aside className={`fixed top-0 left-0 h-full w-64 z-50 bg-white border-r border-gray-100 flex flex-col transform transition-transform duration-300 ease-in-out lg:hidden ${drawerOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full"}`}>
+      <aside className={`fixed top-0 left-0 h-dvh w-[min(18rem,calc(100vw-2rem))] z-50 bg-white border-r border-gray-100 flex flex-col transform transition-transform duration-300 ease-in-out lg:hidden ${drawerOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full"}`}>
         <SidebarNav page={page} setPage={setPage} onLogout={async () => { await supabaseBrowser().auth.signOut(); setLoggedIn(false); setDrawerOpen(false); }} onClose={() => setDrawerOpen(false)} />
       </aside>
 
       {/* Main */}
       <div className="flex-1 flex flex-col min-w-0 h-full">
-        <header className="bg-white border-b border-gray-100 px-4 lg:px-6 py-3.5 flex items-center justify-between flex-shrink-0">
+        <header className="app-header bg-white border-b border-gray-100 px-4 lg:px-6 py-3.5 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-3">
             <button onClick={() => setDrawerOpen(true)} className="lg:hidden p-1.5 text-gray-500 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-colors">
               <Ic.menu />
@@ -1993,7 +1998,7 @@ export default function App() {
             />
           </div>
         </header>
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+        <main className="app-main min-h-0 flex-1 overflow-y-auto p-3 sm:p-4 lg:p-6">
           {renderPage()}
         </main>
       </div>

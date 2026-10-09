@@ -4,7 +4,7 @@
 html,
 body,
 #root {
-  height: 100%;
+  min-height: 100%;
   font-family: 'Inter', 'DM Sans', sans-serif;
 }
 
@@ -55,6 +55,24 @@ body,
 
 body {
   margin: 0;
-  min-height: 100vh;
+  min-height: 100dvh;
   background: var(--background);
+}
+
+.app-header {
+  padding-top: calc(0.875rem + env(safe-area-inset-top));
+  padding-left: max(1rem, env(safe-area-inset-left));
+  padding-right: max(1rem, env(safe-area-inset-right));
+}
+
+.app-main {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+@media (max-width: 640px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
 }

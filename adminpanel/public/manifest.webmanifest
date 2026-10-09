@@ -1,0 +1,19 @@
+{
+  "id": "/",
+  "name": "Kilax Admin Panel",
+  "short_name": "Kilax Admin",
+  "description": "Kilax administration dashboard",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f8f9fb",
+  "theme_color": "#f97316",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
